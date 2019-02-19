@@ -171,7 +171,7 @@ process parseMayu {
     
     script:
     """
-    python parse_mayu.pl $mayu_csv
+    parse_mayu.pl $mayu_csv
     """
 }
 
