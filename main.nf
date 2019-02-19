@@ -99,7 +99,7 @@ process interProphet {
 }
 
 
-interPepOut.into{interPepOut1; interPepOut2; interPepOut3}
+interPepOut.into{interPepOut1; interPepOut2; interPepOut3; interPepOut4}
 
 
 process proteinProphet {
@@ -167,7 +167,7 @@ process parseMayu {
     file mayu_csv from mayuOut
 
     output:
-    val probability into parseMayuOut
+    stdout into parseMayuOut
 
     script:
     """
@@ -176,4 +176,23 @@ process parseMayu {
 }
 
 
-parseMayuOut.subscribe{print "$it"}
+process spectraST {
+    input:
+    file pepxml from interPepOut4
+    val probability from parseMayuOut
+    file irt from file(params.rt_file)
+
+    output:
+    file "SpecLib.splib"
+    file "SpecLib.sptxt"
+    file "SpecLib.pepidx"
+    file "SpecLib_cons.splib"
+    file "SpecLib_cons.sptxt"
+    file "SpecLib_cons.pepidx"    
+    
+    script:
+    """
+    spectrast -cNSpecLib $params.st_fragmentation -cf"Protein!~$params.decoy" -cP$probability -c_IRT$irt -c_IRR $pepxml
+    spectrast -cNSpecLib_cons $params.st_fragmentation -cAC SpecLib.splib
+    """
+}
