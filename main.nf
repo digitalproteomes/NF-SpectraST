@@ -177,6 +177,8 @@ process parseMayu {
 
 
 process spectraST {
+    publishDir 'Results/SpectraST'
+    
     input:
     file pepxml from interPepOut4
     val probability from parseMayuOut
