@@ -192,7 +192,7 @@ process spectraST {
     
     script:
     """
-    spectrast -cNSpecLib $params.st_fragmentation -cf"Protein!~$params.decoy" -cP$probability -c_IRT$irt -c_IRR $pepxml
+    spectrast -cNSpecLib $params.st_fragmentation -cf'Protein!~$params.decoy' -cP$probability -c_IRT$irt -c_IRR $pepxml
     spectrast -cNSpecLib_cons $params.st_fragmentation -cAC SpecLib.splib
     """
 }
