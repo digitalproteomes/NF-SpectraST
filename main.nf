@@ -179,7 +179,7 @@ process parseMayu {
 process spectraST {
     input:
     file pepxml from interPepOut4
-    val probability from parseMayuOut.map{it -> it.trim()}
+    val probability from parseMayuOut
     file irt from file(params.rt_file)
 
     output:

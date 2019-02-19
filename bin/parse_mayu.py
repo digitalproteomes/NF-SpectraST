@@ -2,6 +2,7 @@
 
 import pandas as pd
 import argparse
+import sys
 
 
 def main():
@@ -16,7 +17,7 @@ def main():
     probability = df[df.protFDR < 0.01].tail(1)['IP/PPs']
     probability.reset_index(drop=True, inplace=True)
     if len(probability):
-        print('{}'.format(probability[0]))
+        sys.stdout.write('{}'.format(probability[0]))
 
 if __name__ == "__main__":
     main()
