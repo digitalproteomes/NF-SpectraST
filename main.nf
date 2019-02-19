@@ -167,7 +167,7 @@ process parseMayu {
     file mayu_csv from mayuOut
 
     output:
-    val probability into parseMayuOut
+    stdout into parseMayuOut
 
     script:
     """
@@ -179,7 +179,7 @@ process parseMayu {
 process spectraST {
     input:
     file pepxml from interPepOut4
-    val probability from parseMayuOut
+    val probability from parseMayuOut.map{it -> it.trim()}
     file irt from file(params.rt_file)
 
     output:
