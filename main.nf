@@ -177,7 +177,8 @@ process parseMayu {
 
 
 process spectraST {
-    // Assemble consensus spectral library
+    // Assemble consensus spectral library and export it to .mrm with
+    // PTMs converted to UniMod
     publishDir 'Results/SpectraST'
     
     input:
@@ -207,6 +208,7 @@ process spectraST {
 
 
 process assayGenerator {
+    // Optimize assays
     publishDir 'Results/SpectraST'
 
     input:
@@ -224,6 +226,7 @@ process assayGenerator {
 
 
 process decoyGenerator {
+    // Append decoys
     publishDir "Results/SpectraST"
     
     input:
