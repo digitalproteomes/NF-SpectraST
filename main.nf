@@ -177,6 +177,7 @@ process parseMayu {
 
 
 process spectraST {
+    // Assemble consensus spectral library
     publishDir 'Results/SpectraST'
     
     input:
@@ -190,7 +191,8 @@ process spectraST {
     file "SpecLib.pepidx"
     file "SpecLib_cons.splib"
     file "SpecLib_cons.sptxt"
-    file "SpecLib_cons.pepidx"    
+    file "SpecLib_cons.pepidx"
+    file "spectrast.log"
     
     script:
     """
