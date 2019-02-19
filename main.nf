@@ -168,9 +168,10 @@ process parseMayu {
 
     output:
     val probability into parseMayuOut
-    
+
+    script:
     """
-    parse_mayu.pl $mayu_csv
+    parse_mayu.py $mayu_csv
     """
 }
 
