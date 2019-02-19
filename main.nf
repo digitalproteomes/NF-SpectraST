@@ -184,6 +184,7 @@ process spectraST {
     file pepxml from interPepOut4
     val probability from parseMayuOut
     file irt from file(params.rt_file)
+    file fix_mods from file(params.st_fix_mods)
 
     output:
     file "SpecLib.splib"
@@ -193,10 +194,46 @@ process spectraST {
     file "SpecLib_cons.sptxt"
     file "SpecLib_cons.pepidx"
     file "spectrast.log"
+    file "SpecLib_cons_conv.mrm" into spectraST
     
     script:
     """
     spectrast -cNSpecLib $params.st_fragmentation -cf'Protein!~$params.decoy' -cP$probability -c_IRT$irt -c_IRR $pepxml
     spectrast -cNSpecLib_cons $params.st_fragmentation -cAC SpecLib.splib
+    spectrast -cNSpecLib_cons_conv $params.st_fragmentation -cM SpecLib_cons.splib
+    sed -i -f $fix_mods SpecLib_cons_conv.mrm
+    """
+}
+
+
+process assayGenerator {
+    publishDir 'Results/SpectraST'
+
+    input:
+    file mrm_lib from spectraST
+    file swath_window_file from file(params.swath_window_file)
+    
+    output:
+    file "SpecLib_opt.pqp" into assayGeneratorOut
+    
+    script:
+    """
+    OpenSwathAssayGenerator -in $mrm_lib -out SpecLib_opt.pqp -swath_windows_file $swath_window_file
+    """
+}
+
+
+process decoyGenerator {
+    publishDir "Results/SpectraST"
+    
+    input:
+    file spec_lib from assayGeneratorOut
+
+    output:
+    file "SpecLib_opt_dec.pqp"
+    
+    script:
+    """
+    OpenSwathAssayGenerator -in $spec_lib -out SpecLib_opt_dec.pqp
     """
 }
