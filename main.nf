@@ -167,7 +167,7 @@ process parseMayu {
     file mayu_csv from mayuOut
 
     output:
-    stdout into parseMayuOut
+    val probability into parseMayuOut
 
     script:
     """
