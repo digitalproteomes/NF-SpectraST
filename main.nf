@@ -126,16 +126,16 @@ process cometSearch {
     publishDir 'Results/Comet'
     
     input:
-    file mzXML from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(pDdaFiles1)
+    file mzXML_comet from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(pDdaFiles1)
     file comet_params from file(params.comet_params)
     file protein_db from file(params.protein_db)
 
     output:
     file '*.pep.xml' into cometOut
-    file mzXML
+    file mzXML_comet
 
     """
-    comet $mzXML
+    comet $mzXML_comet
     """
 }
 
@@ -149,7 +149,7 @@ process pooledCometTpp {
     file protein_db from file(params.protein_db)
 
     output:
-    file 'comet_merged.pep.xml' into tppPepOut
+    file 'comet_merged.pep.xml' into tppPepOut_comet
     file 'comet_merged.pep-MODELS.html'
     file 'comet_merged.pep.xml.index'
     file 'comet_merged.pep.xml.pIstats'
