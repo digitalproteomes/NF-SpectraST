@@ -118,13 +118,15 @@ process mgf2mzxml {
 }
 
 
+pDdaFiles.into{pDdaFiles1; pDdaFiles2}
+
 process cometSearch {
     // Search all mzXML files in $params.dda_folder and diaUmpire
     // extracted ones with Comet
     publishDir 'Results/Comet'
     
     input:
-    file mzXML from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(pDdaFiles)
+    file mzXML from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(pDdaFiles1)
     file comet_params from file(params.comet_params)
     file protein_db from file(params.protein_db)
 
@@ -155,6 +157,65 @@ process pooledCometTpp {
     // xinteract and refactor links in prot.xml 
     """
     xinteract $params.tpp -d$params.decoy -Ncomet_merged.pep.xml $pepxmls
+    """
+}
+
+
+process tandemSearch {
+    // Search all mzXML files in $params.dda_folder with Tandem
+    publishDir 'Results/Tandem'
+    
+    input:
+    file mzXML_tandem from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(pDdaFiles2)
+    file tandem_params from file(params.tandem_params)
+    file tandem_default_params from file(params.tandem_default_params)
+    file taxonomy_params from file(params.tandem_taxonomy)
+    file protein_db from file(params.protein_db)
+
+    output:
+    file '*_raw.pep.xml' into tandemOut
+    file mzXML_tandem
+    file 'tandem_params*'
+    file 'taxonomy.xml'
+
+    script:
+    """
+    FNAME=\$(basename $mzXML_tandem .mzXML)
+    
+    # Set input and output
+    sed -i s,full_mzXML_filepath,$mzXML_tandem, $tandem_params
+    sed -i s,full_tandem_output_path,\${FNAME}.xtan.xml, $tandem_params
+    mv $tandem_params tandem_params_\${FNAME}.xml
+
+    # Set proteins DB
+    sed -i s,db_path,$protein_db, $taxonomy_params
+
+    # Perform search
+    tandem tandem_params_\${FNAME}.xml 
+    
+    # Convert output to pep.xml
+    Tandem2XML \${FNAME}.xtan.xml > \${FNAME}_raw.pep.xml
+    """
+}
+
+
+process pooledTandemTpp {
+    // Interact together all tandem searches
+    publishDir 'Results/Tandem'
+    
+    input:
+    file pepxmls from tandemOut.collect()
+    file protein_db from file(params.protein_db)
+
+    output:
+    file 'tandem_merged.pep.xml' into tppPepOut_tandem
+    file 'tandem_merged.pep-MODELS.html'
+    file 'tandem_merged.pep.xml.index'
+    file 'tandem_merged.pep.xml.pIstats'
+
+    // xinteract and refactor links in prot.xml 
+    """
+    xinteract $params.tpp -d$params.decoy -Ntandem_merged.pep.xml $pepxmls
     """
 }
 
@@ -319,3 +380,4 @@ process decoyGenerator {
     OpenSwathAssayGenerator -in $spec_lib -out SpecLib_opt_dec.pqp
     """
 }
+
