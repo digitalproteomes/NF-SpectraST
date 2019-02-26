@@ -229,9 +229,7 @@ process interProphet {
     publishDir 'Results/SpectraST'
     
     input:
-    file pepxmls from tppPepOut_comet
-	.merge(tppPepOut_tandem)
-	.collect()
+    file pepxmls from tppPepOut_comet.concat(tppPepOut_tandem).collect()
 
     output:
     file 'iprophet.pep.xml' into interPepOut
