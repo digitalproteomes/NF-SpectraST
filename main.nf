@@ -174,7 +174,10 @@ process tandemSearch {
 
     output:
     file '*_raw.pep.xml' into tandemOut
-    file mzXML_tandem
+    // For Tandem we need to stage the mzXML files to the next step
+    // (pooledTandemTpp) as well to enable spectrum visualization in
+    // PepXMLViewer
+    file mzXML_tandem into tandemOutMzxml
     file 'tandem_params*'
     file 'taxonomy.xml'
 
@@ -205,6 +208,7 @@ process pooledTandemTpp {
     
     input:
     file pepxmls from tandemOut.collect()
+    file mzXML_tandem from tandemOutMzxml.collect()
     file protein_db from file(params.protein_db)
 
     output:
