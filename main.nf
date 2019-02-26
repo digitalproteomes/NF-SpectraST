@@ -191,7 +191,7 @@ process tandemSearch {
     sed -i s,db_path,$protein_db, $taxonomy_params
 
     # Perform search
-    tandem.exe tandem_params_\${FNAME}.xml 
+    tandem tandem_params_\${FNAME}.xml 
     
     # Convert output to pep.xml
     Tandem2XML \${FNAME}.xtan.xml > \${FNAME}_raw.pep.xml
@@ -225,9 +225,7 @@ process interProphet {
     publishDir 'Results/SpectraST'
     
     input:
-    file pepxmls from tppPepOut_comet
-	.concat(tppPepOut_tandem)
-	.collect()
+    file pepxmls from tppPepOut.collect()
 
     output:
     file 'iprophet.pep.xml' into interPepOut
