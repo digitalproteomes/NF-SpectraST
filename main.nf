@@ -276,7 +276,7 @@ process mayu {
 
     input:
     file pepxml from interPepOut2
-    file db from file(params.protein_db)
+    file protein_db from file(params.protein_db)
     
     output:
     file 'mayu_iprophet.pep.xml_main_1.07.txt'
@@ -284,7 +284,7 @@ process mayu {
     
     """
     Mayu.pl -A $pepxml \
-    -C $db \
+    -C $protein_db \
     -E $params.decoy \
     -M mayu_$pepxml \
     -P pepFDR=0.01:1
@@ -384,7 +384,7 @@ process decoyGenerator {
     
     script:
     """
-    OpenSwathAssayGenerator -in $spec_lib -out SpecLib_opt_dec.pqp
+    OpenSwathDecoyGenerator -in $spec_lib -out SpecLib_opt_dec.pqp
     """
 }
 
