@@ -258,6 +258,7 @@ process proteinProphet {
     
     script:
     """
+    RefreshParser $pepxml $protein_db
     ProteinProphet $pepxml iprophet.prot.xml IPROPHET
     tpp_models.pl iprophet.prot.xml
     sed -ri 's|/work/.{2}/.{30}|/Results/SpectraST|'g iprophet.prot.xml
