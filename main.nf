@@ -135,6 +135,9 @@ process cometSearch {
     file mzXML_comet
 
     """
+    # Set proteins DB
+    sed -i s,db_path,$protein_db, $comet_params
+
     comet $mzXML_comet
     """
 }
