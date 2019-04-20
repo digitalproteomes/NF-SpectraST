@@ -96,7 +96,7 @@ process diaUmpire {
     file '*.mgf' into diaUmpireOut
     
     """
-    dia_umpire_se -Xmx8G $dia_file $diau_se_params
+    dia_umpire_se -Xmx32G $dia_file $diau_se_params
     """
 }
 
