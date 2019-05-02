@@ -96,7 +96,8 @@ process diaUmpire {
     file '*.mgf' into diaUmpireOut
     
     """
-    dia_umpire_se -Xmx32G $dia_file $diau_se_params
+    dia_umpire_se -Xmx24G $dia_file $diau_se_params
+    chown -R 1001:255361 /data/users/phrt/005/work
     """
 }
 
@@ -288,6 +289,8 @@ process mayu {
     -C $protein_db \
     -E $params.decoy \
     -M mayu_$pepxml \
+    -H $params.mayu_steps \
+    -I $params.mayu_missed_cleavages \
     -P pepFDR=0.01:1
     """
 }
