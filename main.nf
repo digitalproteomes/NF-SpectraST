@@ -333,6 +333,7 @@ process spectraST {
     publishDir 'Results/SpectraST'
     
     input:
+    file mzXML from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(Channel.fromPath("Results/DIAUmpire/*.mzXML")).toList()
     file pepxml from interPepOut4
     val probability from parseMayuOut
     file irt from file(params.rt_file)
