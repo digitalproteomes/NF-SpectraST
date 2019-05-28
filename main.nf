@@ -4,7 +4,9 @@
 // InterProphet on pooled PeptideProphets
 // ProteinProphet on InterProphet
 // Mayu on InterProphet
-// Filter 1%FDR Protein -> SpectraST
+
+// This branch filters proteins at 1%FDR and includes all
+// corresponding peptides at 1%FDR
 
 if(params.help) {
 
@@ -97,7 +99,6 @@ process diaUmpire {
     
     """
     dia_umpire_se -Xmx24G $dia_file $diau_se_params
-    chown -R 1001:255361 /data/users/phrt/005/work
     """
 }
 
@@ -119,17 +120,20 @@ process mgf2mzxml {
 }
 
 
-pDdaFiles.into{pDdaFiles1; pDdaFiles2}
+pDdaFiles.into{pDdaFiles1; pDdaFiles2; pDdaFiles3}
 
 process cometSearch {
     // Search all mzXML files in $params.dda_folder and diaUmpire
     // extracted ones with Comet
+    cpus params.comet_threads
+    
     publishDir 'Results/Comet'
     
     input:
     file mzXML_comet from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(pDdaFiles1)
     file comet_params from file(params.comet_params)
     file protein_db from file(params.protein_db)
+    
 
     output:
     file '*.pep.xml' into cometOut
@@ -138,6 +142,7 @@ process cometSearch {
     """
     # Set proteins DB
     sed -i s,db_path,$protein_db, $comet_params
+    sed -i s,num_threads = 0,num_threads = $params.comet_threads, $comet_params
 
     comet $mzXML_comet
     """
@@ -167,6 +172,8 @@ process pooledCometTpp {
 
 process tandemSearch {
     // Search all mzXML files in $params.dda_folder with Tandem
+    cpus params.tandem_threads
+    
     publishDir 'Results/Tandem'
     
     input:
@@ -230,6 +237,8 @@ process pooledTandemTpp {
 
 process interProphet {
     // Combine search engine results via InterProphet
+    cpus 8
+    
     publishDir 'Results/SpectraST'
     
     input:
@@ -247,7 +256,7 @@ process interProphet {
 }
 
 
-interPepOut.into{interPepOut1; interPepOut2; interPepOut3; interPepOut4}
+interPepOut.into{interPepOut1; interPepOut2; interPepOut3; interPepOut4; interPepOut5}
 
 
 process proteinProphet {
@@ -313,16 +322,48 @@ process tppStat {
 }
 
 
-process parseMayu {
+process parseMayuProt {
     input:
     file mayu_csv from mayuOut
 
     output:
-    stdout into parseMayuOut
+    stdout into parseMayuProtOut
 
     script:
     """
-    parse_mayu.py $mayu_csv
+    parse_mayu.py --level protFDR $mayu_csv
+    """
+}
+
+
+process parseMayuPep {
+    input:
+    file mayu_csv from mayuOut
+
+    output:
+    stdout into parseMayuPepOut
+
+    script:
+    """
+    parse_mayu.py --level pepFDR $mayu_csv
+    """
+}
+
+
+process generateProteinList {
+    input:
+    val probability_cutoff from parseMayuProtOut
+    file pepxml from interPepOut4
+    file stylesheet from file(params.protein_xsl_file)
+
+    output:
+    file 'protein_list.txt' into generateProteinListOut
+    
+    script:
+    """
+    sed -i s,IPROPHET_PROB,$probability_cutoff, $stylesheet
+    xsltproc $stylesheet $pepxml | sort | uniq > protein_list.txt
+    echo iRT >> protein_list.txt
     """
 }
 
@@ -333,27 +374,40 @@ process spectraST {
     publishDir 'Results/SpectraST'
     
     input:
-    file mzXML from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(Channel.fromPath("Results/DIAUmpire/*.mzXML")).toList()
-    file pepxml from interPepOut4
-    val probability from parseMayuOut
+    file mzXML from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(pDdaFiles3).toList()
+    file pepxml from interPepOut5
+    val probability from parseMayuPepOut
     file irt from file(params.rt_file)
     file fix_mods from file(params.st_fix_mods)
+    file protein_list from generateProteinListOut
+    file protein_db from file(params.protein_db)
 
     output:
     file "SpecLib.splib"
     file "SpecLib.sptxt"
     file "SpecLib.pepidx"
+    file "SpecLib.pepidx"
     file "SpecLib_cons.splib"
     file "SpecLib_cons.sptxt"
     file "SpecLib_cons.pepidx"
+    file "SpecLib_cons.pepidx"
+    file "SpecLib_cons_new.splib"
+    file "SpecLib_cons_new.sptxt"
+    file "SpecLib_cons_new.pepidx"
+    file "SpecLib_cons_new.pepidx"
     file "spectrast.log"
+    file "SpecLib_cons_conv.splib"
+    file "SpecLib_cons_conv.sptxt"
+    file "SpecLib_cons_conv.pepidx"
+    file "SpecLib_cons_conv.pepidx"
     file "SpecLib_cons_conv.mrm" into spectraST
     
     script:
     """
-    spectrast -cNSpecLib $params.st_fragmentation -cf'Protein!~$params.decoy' -cP$probability -c_IRT$irt -c_IRR $pepxml
+    spectrast -cNSpecLib $params.st_fragmentation -cO$protein_list -cf'Protein!~$params.decoy' -cP$probability -c_IRT$irt -c_IRR $pepxml
     spectrast -cNSpecLib_cons $params.st_fragmentation -cAC SpecLib.splib
-    spectrast -cNSpecLib_cons_conv $params.st_fragmentation -cM SpecLib_cons.splib
+    spectrast -cD$protein_db SpecLib_cons.splib
+    spectrast -cNSpecLib_cons_conv $params.st_fragmentation -cM SpecLib_cons_new.splib
     sed -i -f $fix_mods SpecLib_cons_conv.mrm
     """
 }
@@ -372,7 +426,13 @@ process assayGenerator {
     
     script:
     """
-    OpenSwathAssayGenerator -in $mrm_lib -out SpecLib_opt.pqp -swath_windows_file $swath_window_file
+    OpenSwathAssayGenerator -in $mrm_lib \
+    -out SpecLib_opt.pqp \
+    -swath_windows_file $swath_window_file \
+    -precursor_upper_mz_limit $params.precursor_upper_mz_limit \
+    -product_lower_mz_limit $params.product_lower_mz_limit \
+    -min_transitions $params.min_transitions \
+    -max_transitions $params.max_transitions
     """
 }
 
