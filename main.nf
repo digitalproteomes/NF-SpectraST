@@ -170,7 +170,8 @@ process msfraggerSearch {
     file fragger_params from file(params.fragger_params)
 
     output:
-    file '*.pepXML' into msfraggerSearchOut
+    file '*.mzXML' into msfraggerSearchMzxmlOut
+    file '*.pepXML' into msfraggerSearchPepxmlOut
     
     script:
     """
@@ -184,9 +185,11 @@ process msfraggerSearch {
 
 
 process msfraggerConvert {
+    tag "$pepXML"
+    
     input:
-    file mzXML from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(pDdaFiles2)
-    file pepXML from msfraggerSearchOut
+    file mzXML from msfraggerSearchMzxmlOut
+    file pepXML from msfraggerSearchPepxmlOut
     
     output:
     file '*_psms.tsv'
@@ -202,6 +205,38 @@ process msfraggerConvert {
     """
 }
 
+
+process pyprophetMerge {
+    tag "$subpsms"
+    
+    input:
+    file subpsms from msfraggerConvertOut
+
+    output:
+    file 'Q*.tsv' into pyprophetLearnOut
+    
+    script:
+    """
+    awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && $22==0) || NR==1 {{print $0}}' {input} > pyprophet_learn_Q0.tsv \
+    awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && $22==1) || NR==1 {{print $0}}' {input} > pyprophet_learn_Q1.tsv \
+    awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && $22==2) || NR==1 {{print $0}}' {input} > pyprophet_learn_Q2.tsv \
+    awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && $22==3) || NR==1 {{print $0}}' {input} > pyprophet_learn_Q3.tsv
+    """
+}
+
+
+process pyprophetLearn {
+    input:
+    file qsubpsms from pyprophetMergeOut
+
+    output:
+    file "*weights.csv" into pyprophetLearnOut
+    
+    script:
+    """
+    
+    """
+}
 
 // process pyprophetMerge {
 //     input:
