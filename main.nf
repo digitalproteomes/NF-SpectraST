@@ -106,9 +106,15 @@ process diaUmpire {
     script:
     """
     sed -i 's,Thread = 0,Thread = $params.diau_threads,' $diau_se_params
-    dia_umpire_se -XX:MaxRAMPercentage=80 -XX:+UseContainerSupport $dia_file $diau_se_params
+    java -jar -Xmx32G /home/biodocker/bin/DIA-Umpire/v2.1.2/DIA_Umpire_SE.jar $dia_file $diau_se_params
     """
+
 }
+    // script:
+    // """
+    // sed -i 's,Thread = 0,Thread = $params.diau_threads,' $diau_se_params
+    // dia_umpire_se -XX:MaxRAMPercentage=80 -XX:+UseContainerSupport $dia_file $diau_se_params
+    // """
 
 
 process mgf2mzxml {
@@ -185,14 +191,15 @@ process msfraggerSearch {
 }
 
 
-//susample_ratio = (1 / file("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut2).size())
-subsample_ratio = (1 / file("${params.dda_folder}/*.mzXML").size())
+//subsample_ratio = (1 / (file("${params.dda_folder}/*.mzXML").size() + mgf2mzxmlOut2.count().val) )
+//subsample_ratio = (2 / file("${params.dda_folder}/*.mzXML").size())
+subsample_ratio = 0.1
 process msfraggerConvert {
     tag "$pepXML"
     
     input:
     set mzXML , pepXML from msfraggerSearchOut
-    file unimod from file(params.easypqp_unimod)
+    file unimod from file(params.msfraggerconvert_unimod)
     
     output:
     file '*_psms.tsv'
@@ -209,7 +216,14 @@ process msfraggerConvert {
 }
 
 
-msfraggerConvertPsmsOut.into{msfraggerConvertPsmsOut1; msfraggerConvertPsmsOut2}
+// Remove searches with less than 10 decoys or 10 target groups (required by pyprophetScore process)
+// and duplicate resulting channel
+msfraggerConvertPsmsFilteredOut = msfraggerConvertPsmsOut
+    .filter{ it.readLines().grep( ~/.*True.*/ ).size() > 9 }
+    .filter{ it.readLines().grep( ~/.*False.*/ ).size() > 9 }
+
+
+msfraggerConvertPsmsFilteredOut.into{msfraggerConvertPsmsOut1; msfraggerConvertPsmsOut2}
 
 
 process pyprophetMerge {
@@ -235,47 +249,111 @@ process pyprophetMerge {
 
 
 process pyprophetLearn {
-    tag "$q0 - $q1 - $q2 - $q3"
+    scratch 'ram-disk'
+    stageInMode "copy"
+    tag "$pyprophetMergeQ0Out - $pyprophetMergeQ1Out - $pyprophetMergeQ2Out - $pyprophetMergeQ3Out"
 
-    cpus params.pyprophet_learn_threads
-    
     input:
     file q0 from pyprophetMergeQ0Out
     file q1 from pyprophetMergeQ1Out
     file q2 from pyprophetMergeQ2Out
-    file q3 from pyprophetMergeQ3Out
+    file q3 from pyprophetMergeQ3Out    
 
     output:
-    file "*_weights.csv" into pyprophetLearnOut
-    
-    script:
-    """
-    pyprophet score --in $q0 --threads=$params.pyprophet_learn_threads; \
-    pyprophet score --in $q1 --threads=$params.pyprophet_learn_threads; \
-    pyprophet score --in $q2 --threads=$params.pyprophet_learn_threads; \
-    pyprophet score --in $q3 --threads=$params.pyprophet_learn_threads
-    """
+    file "pyprophet_learn_Q0_weights.csv" into pyprophetLeanQ0Out
+    file "pyprophet_learn_Q0_summary_stat.csv"
+    file "pyprophet_learn_Q0_full_stat.csv"
+    file "pyprophet_learn_Q0_scored.tsv"
+    file "pyprophet_learn_Q0_report.pdf"
+    file "pyprophet_learn_Q1_weights.csv" into pyprophetLeanQ1Out
+    file "pyprophet_learn_Q1_summary_stat.csv"
+    file "pyprophet_learn_Q1_full_stat.csv"
+    file "pyprophet_learn_Q1_scored.tsv"
+    file "pyprophet_learn_Q1_report.pdf"
+    file "pyprophet_learn_Q2_weights.csv" into pyprophetLeanQ2Out
+    file "pyprophet_learn_Q2_summary_stat.csv"
+    file "pyprophet_learn_Q2_full_stat.csv"
+    file "pyprophet_learn_Q2_scored.tsv"
+    file "pyprophet_learn_Q2_report.pdf"
+    file "pyprophet_learn_Q3_weights.csv" into pyprophetLeanQ3Out
+    file "pyprophet_learn_Q3_summary_stat.csv"
+    file "pyprophet_learn_Q3_full_stat.csv"
+    file "pyprophet_learn_Q3_scored.tsv"
+    file "pyprophet_learn_Q3_report.pdf"
+
+
+    shell:
+    '''
+    LINES=$(wc -l !{q0} | cut -f1 -d' ')
+    if [ "$LINES" -gt "1" ]
+    then
+        pyprophet score --in !{q0} --threads=!{params.pyprophet_learn_threads};
+    fi
+
+    LINES=$(wc -l !{q1} | cut -f1 -d' ')
+    if [ "$LINES" -gt "1" ]
+    then
+        pyprophet score --in !{q1} --threads=!{params.pyprophet_learn_threads};
+    fi
+
+    LINES=$(wc -l !{q2} | cut -f1 -d' ')
+    if [ "$LINES" -gt "1" ]
+    then
+        pyprophet score --in !{q2} --threads=!{params.pyprophet_learn_threads};
+    fi
+
+    LINES=$(wc -l !{q3} | cut -f1 -d' ')
+    if [ "$LINES" -gt "1" ]
+    then
+        pyprophet score --in !{q3} --threads=!{params.pyprophet_learn_threads};
+    fi
+    '''
 }
 
 
 process pyprophetScore {
-    tag "$supsms"
+    scratch 'ram-disk'
+    stageInMode "copy"
+    tag "$subpsms"
     
     input:
     file subpsms from msfraggerConvertPsmsOut2
-    file weights from pyprophetLearnOut
-    
+    file q0 from pyprophetLeanQ0Out
+    file q1 from pyprophetLeanQ1Out
+    file q2 from pyprophetLeanQ2Out
+    file q3 from pyprophetLeanQ3Out
+        
     output:
-    file "*_psms_scored.tsv" into pyprophetScoreOut
+    file "*_subpsms_scored.tsv" into pyprophetScoreOut
+    file "*_subpsms_summary_stat.csv"
+    file "*_subpsms_full_stat.csv"
+    file "*_subpsms_report.pdf"
     
     script:
+    if( subpsms.contains('_Q1_') )
     """
-    pyprophet score --in $subpsms --apply_weights=$weights --pi0_lambda=$params.pi0_lambda_ppscore
+    pyprophet score --in $subpsms --apply_weights=$q1 --pi0_lambda=$params.pyprophetscore_pi0_lambda
+    """
+    else if( subpsms.contains('_Q2_') )
+    """
+    pyprophet score --in $subpsms --apply_weights=$q2 --pi0_lambda=$params.pyprophetscore_pi0_lambda
+    """
+    else if( subpsms.contains('_Q3_') )
+    """
+    pyprophet score --in $subpsms --apply_weights=$q3 --pi0_lambda=$params.pyprophetscore_pi0_lambda
+
+    """
+    else
+    """
+    pyprophet score --in $subpsms --apply_weights=$q0 --pi0_lambda=$params.pyprophetscore_pi0_lambda
     """
 }
 
 
+// Create Spectral Library
 process easypqp {
+//    scratch 'true'
+//    stageInMode "copy"
     tag "$psms"
     
     publishDir 'Results/easypqpLib', mode: 'link'
@@ -285,15 +363,16 @@ process easypqp {
     file peakpkl from msfraggerConvertPklOut.collect()
 
     output:
+    file "*_global_peaks.tsv" into easypqpOut
     file "pyprophet_peptide_report.pdf"
     file "pyprophet_protein_report.pdf"
     
     script:
     """
-    easypqp library --psm_fdr_threshold=$params.psm_fdr_threshold \
-    --peptide_fdr_threshold=$params.peptide_fdr_threshold \
-    --protein_fdr_threshold=$params.protein_fdr_threshold \
-    --pi0_lambda=$params.pi0_lambda_easypqp \
+    easypqp library --psm_fdr_threshold=$params.easypqp_psm_fdr_threshold \
+    --peptide_fdr_threshold=$params.easypqp_peptide_fdr_threshold \
+    --protein_fdr_threshold=$params.easypqp_protein_fdr_threshold \
+    --pi0_lambda=$params.easypqp_pi0_lambda \
     --peptide_plot=pyprophet_peptide_report.pdf \
     --protein_plot=pyprophet_protein_report.pdf \
     $psms \
@@ -301,351 +380,60 @@ process easypqp {
     """
 }
 
-// process pyprophetMerge {
-//     input:
-//     file subpsms from msfraggerConvertOur.collect()
 
-//     output:
-//     'pyprophet_learn*.tsv' into pyprophetMergeOut
+process globalTargetPqp {
+    tag "$peaks"
+
+    input:
+    file peaks from easypqpOut.flatten()
     
-//     script:
-//     """
-//     awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && $22==0) || NR==1 {{print $0}}' {input} > {output.Q0} &&
-//     awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && $22==1) || NR==1 {{print $0}}' {input} > {output.Q1} &&
-//     awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && $22==2) || NR==1 {{print $0}}' {input} > {output.Q2} &&
-// 	awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && $22==3) || NR==1 {{print $0}}' {input} > {output.Q3}
-//     """
-// }
-
-
-// process cometSearch {
-//     // Search all mzXML files in $params.dda_folder and diaUmpire
-//     // extracted ones with Comet
-//     cpus params.comet_threads
+    output:
+    file "*_global_peaks_pqp.tsv" into assayGeneratorOut
     
-//     publishDir 'Results/Comet'
+    script:
+    """
+    OpenSwathAssayGenerator -in $peaks \
+    -out `basename ${peaks} .tsv`_pqp.tsv  \
+    -precursor_upper_mz_limit $params.globaltargetpqp_precursor_upper_mz_limit \
+    -product_lower_mz_limit $params.globaltargetpqp_product_lower_mz_limit \
+    -min_transitions $params.globaltargetpqp_min_transitions \
+    -max_transitions $params.globaltargetpqp_max_transitions
+    """
+}
+
+
+process globalCombinedPqp {
+    tag "$global_targets"
     
-//     input:
-//     file mzXML_comet from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(pDdaFiles1)
-//     file comet_params from file(params.comet_params)
-//     file protein_db from file(params.protein_db)
+    input:
+    file global_targets from assayGeneratorOut.collect()
+
+    output:
+    file 'combined_global_pqp.tsv' into globalCombinedPqpOut
     
-
-//     output:
-//     file '*.pep.xml' into cometOut
-//     file mzXML_comet
-
-//     """
-//     # Set proteins DB
-//     sed -i s,db_path,$protein_db, $comet_params
-//     sed -i s,num_threads = 0,num_threads = $params.comet_threads, $comet_params
-
-//     comet $mzXML_comet
-//     """
-//}
+    script:
+    """
+    awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} FNR>1 || NR==1 {{print \$1,\$2,\$3,\$4,\$5,\$6,\$7,\$8,\$15,\$18,\$19,\$20,\$25,\$26,\$27,\$28,\$29}}' $global_targets > combined_global_pqp.tsv
+    """
+}
 
 
-// process pooledCometTpp {
-//     // Interact together all comet searches
-//     publishDir 'Results/Comet'
+process globalCombinedDecoyPqp {
+    scratch 'ram-disk'
+    stageInMode "copy"
+    tag "global_pqp"
     
-//     input:
-//     file pepxmls from cometOut.collect()
-//     file protein_db from file(params.protein_db)
+    publishDir 'Results/easypqpLib', mode: 'link'
 
-//     output:
-//     file 'comet_merged.pep.xml' into tppPepOut_comet
-//     file 'comet_merged.pep-MODELS.html'
-//     file 'comet_merged.pep.xml.index'
-//     file 'comet_merged.pep.xml.pIstats'
+    input:
+    file global_pqp from globalCombinedPqpOut
 
-//     // xinteract and refactor links in prot.xml 
-//     """
-//     xinteract $params.tpp -d$params.decoy -Ncomet_merged.pep.xml $pepxmls
-//     """
-// }
-
-
-// process tandemSearch {
-//     // Search all mzXML files in $params.dda_folder with Tandem
-//     cpus params.tandem_threads
+    output:
+    file 'library.pqp'
     
-//     publishDir 'Results/Tandem'
-    
-//     input:
-//     file mzXML_tandem from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(pDdaFiles2)
-//     file tandem_params from file(params.tandem_params)
-//     file tandem_default_params from file(params.tandem_default_params)
-//     file taxonomy_params from file(params.tandem_taxonomy)
-//     file protein_db from file(params.protein_db)
-
-//     output:
-//     file '*_raw.pep.xml' into tandemOut
-//     // For Tandem we need to stage the mzXML files to the next step
-//     // (pooledTandemTpp) as well to enable spectrum visualization in
-//     // PepXMLViewer
-//     file mzXML_tandem into tandemOutMzxml
-//     file 'tandem_params*'
-//     file 'taxonomy.xml'
-
-//     script:
-//     """
-//     FNAME=\$(basename $mzXML_tandem .mzXML)
-    
-//     # Set input and output
-//     sed -i s,full_mzXML_filepath,$mzXML_tandem, $tandem_params
-//     sed -i s,full_tandem_output_path,\${FNAME}.xtan.xml, $tandem_params
-//     mv $tandem_params tandem_params_\${FNAME}.xml
-
-//     # Set proteins DB
-//     sed -i s,db_path,$protein_db, $taxonomy_params
-
-//     # Perform search
-//     tandem tandem_params_\${FNAME}.xml 
-    
-//     # Convert output to pep.xml
-//     Tandem2XML \${FNAME}.xtan.xml > \${FNAME}_raw.pep.xml
-//     """
-// }
-
-
-// process pooledTandemTpp {
-//     // Interact together all tandem searches
-//     publishDir 'Results/Tandem'
-    
-//     input:
-//     file pepxmls from tandemOut.collect()
-//     file mzXML_tandem from tandemOutMzxml.collect()
-//     file protein_db from file(params.protein_db)
-
-//     output:
-//     file 'tandem_merged.pep.xml' into tppPepOut_tandem
-//     file 'tandem_merged.pep-MODELS.html'
-//     file 'tandem_merged.pep.xml.index'
-//     file 'tandem_merged.pep.xml.pIstats'
-
-//     // xinteract and refactor links in prot.xml 
-//     """
-//     xinteract $params.tpp -d$params.decoy -Ntandem_merged.pep.xml $pepxmls
-//     """
-// }
-
-
-// process interProphet {
-//     // Combine search engine results via InterProphet
-//     cpus 8
-    
-//     publishDir 'Results/SpectraST'
-    
-//     input:
-//     file pepxmls from tppPepOut_comet.concat(tppPepOut_tandem).collect()
-
-//     output:
-//     file 'iprophet.pep.xml' into interPepOut
-//     file 'iprophet.pep-MODELS.html'
-    
-//     script:
-//     """
-//     InterProphetParser THREADS=8 $pepxmls iprophet.pep.xml
-//     tpp_models.pl iprophet.pep.xml
-//     """
-// }
-
-
-//interPepOut.into{interPepOut1; interPepOut2; interPepOut3; interPepOut4; interPepOut5}
-
-
-// process proteinProphet {
-//     // Run ProteinProphet on combined search results
-//     publishDir 'Results/SpectraST'
-    
-//     input:
-//     file pepxml from interPepOut1
-//     file protein_db from file(params.protein_db)
-
-//     output:
-//     file 'iprophet.prot-MODELS.html'
-//     file 'iprophet.prot.xml' into tppProtOut
-    
-//     script:
-//     """
-//     RefreshParser $pepxml $protein_db
-//     ProteinProphet $pepxml iprophet.prot.xml IPROPHET
-//     tpp_models.pl iprophet.prot.xml
-//     sed -ri 's|/work/.{2}/.{30}|/Results/SpectraST|'g iprophet.prot.xml
-//     """
-// }
-
-
-// process mayu {
-//     // For each TPP analysis run Mayu
-//     publishDir 'Results/SpectraST'
-
-//     input:
-//     file pepxml from interPepOut2
-//     file protein_db from file(params.protein_db)
-    
-//     output:
-//     file 'mayu_iprophet.pep.xml_main_1.07.txt'
-//     file 'mayu_iprophet.pep.xml_main_1.07.csv' into mayuOut
-    
-//     """
-//     Mayu.pl -A $pepxml \
-//     -C $protein_db \
-//     -E $params.decoy \
-//     -M mayu_$pepxml \
-//     -H $params.mayu_steps \
-//     -I $params.mayu_missed_cleavages \
-//     -P pepFDR=0.01:1
-//     """
-// }
-
-
-// process tppStat {
-//     // For each TPP analysis run calctppstat
-//     publishDir 'Results/SpectraST'
-    
-//     input:
-//     file pepxml from interPepOut3
-//     file protxml from tppProtOut
-
-//     output:
-//     file '*.summary.txt'
-    
-//     """
-//     /usr/local/tpp/cgi-bin/calctppstat.pl -i $pepxml -d $params.decoy --full > ${pepxml}.summary.txt
-//     """
-// }
-
-
-// process parseMayuProt {
-//     input:
-//     file mayu_csv from mayuOut
-
-//     output:
-//     stdout into parseMayuProtOut
-
-//     script:
-//     """
-//     parse_mayu.py --level protFDR $mayu_csv
-//     """
-// }
-
-
-// process parseMayuPep {
-//     input:
-//     file mayu_csv from mayuOut
-
-//     output:
-//     stdout into parseMayuPepOut
-
-//     script:
-//     """
-//     parse_mayu.py --level pepFDR $mayu_csv
-//     """
-// }
-
-
-// process generateProteinList {
-//     input:
-//     val probability_cutoff from parseMayuProtOut
-//     file pepxml from interPepOut4
-//     file stylesheet from file(params.protein_xsl_file)
-
-//     output:
-//     file 'protein_list.txt' into generateProteinListOut
-    
-//     script:
-//     """
-//     sed -i s,IPROPHET_PROB,$probability_cutoff, $stylesheet
-//     xsltproc $stylesheet $pepxml | sort | uniq > protein_list.txt
-//     echo iRT >> protein_list.txt
-//     """
-//}
-
-
-// process spectraST {
-//     // Assemble consensus spectral library and export it to .mrm with
-//     // PTMs converted to UniMod
-//     publishDir 'Results/SpectraST'
-    
-//     input:
-//     file mzXML from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(pDdaFiles3).toList()
-//     file pepxml from interPepOut5
-//     val probability from parseMayuPepOut
-//     file irt from file(params.rt_file)
-//     file fix_mods from file(params.st_fix_mods)
-//     file protein_list from generateProteinListOut
-//     file protein_db from file(params.protein_db)
-
-//     output:
-//     file "SpecLib.splib"
-//     file "SpecLib.sptxt"
-//     file "SpecLib.pepidx"
-//     file "SpecLib.pepidx"
-//     file "SpecLib_cons.splib"
-//     file "SpecLib_cons.sptxt"
-//     file "SpecLib_cons.pepidx"
-//     file "SpecLib_cons.pepidx"
-//     file "SpecLib_cons_new.splib"
-//     file "SpecLib_cons_new.sptxt"
-//     file "SpecLib_cons_new.pepidx"
-//     file "SpecLib_cons_new.pepidx"
-//     file "spectrast.log"
-//     file "SpecLib_cons_conv.splib"
-//     file "SpecLib_cons_conv.sptxt"
-//     file "SpecLib_cons_conv.pepidx"
-//     file "SpecLib_cons_conv.pepidx"
-//     file "SpecLib_cons_conv.mrm" into spectraST
-    
-//     script:
-//     """
-//     spectrast -cNSpecLib $params.st_fragmentation -cO$protein_list -cf'Protein!~$params.decoy' -cP$probability -c_IRT$irt -c_IRR $pepxml
-//     spectrast -cNSpecLib_cons $params.st_fragmentation -cAC SpecLib.splib
-//     spectrast -cD$protein_db SpecLib_cons.splib
-//     spectrast -cNSpecLib_cons_conv $params.st_fragmentation -cM SpecLib_cons_new.splib
-//     sed -i -f $fix_mods SpecLib_cons_conv.mrm
-//     """
-// }
-
-
-// process assayGenerator {
-//     // Optimize assays
-//     publishDir 'Results/SpectraST'
-
-//     input:
-//     file mrm_lib from spectraST
-//     file swath_window_file from file(params.swath_window_file)
-    
-//     output:
-//     file "SpecLib_opt.pqp" into assayGeneratorOut
-    
-//     script:
-//     """
-//     OpenSwathAssayGenerator -in $mrm_lib \
-//     -out SpecLib_opt.pqp \
-//     -swath_windows_file $swath_window_file \
-//     -precursor_upper_mz_limit $params.precursor_upper_mz_limit \
-//     -product_lower_mz_limit $params.product_lower_mz_limit \
-//     -min_transitions $params.min_transitions \
-//     -max_transitions $params.max_transitions
-//     """
-// }
-
-
-// process decoyGenerator {
-//     // Append decoys
-//     publishDir "Results/SpectraST"
-    
-//     input:
-//     file spec_lib from assayGeneratorOut
-
-//     output:
-//     file "SpecLib_opt_dec.pqp"
-    
-//     script:
-//     """
-//     OpenSwathDecoyGenerator -in $spec_lib -out SpecLib_opt_dec.pqp
-//     """
-// }
+    script:
+    """
+    OpenSwathDecoyGenerator -in $global_pqp -out library.pqp
+    """
+}
 
