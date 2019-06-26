@@ -193,7 +193,7 @@ process msfraggerSearch {
 
 //subsample_ratio = (1 / (file("${params.dda_folder}/*.mzXML").size() + mgf2mzxmlOut2.count().val) )
 //subsample_ratio = (2 / file("${params.dda_folder}/*.mzXML").size())
-subsample_ratio = 0.1
+subsample_ratio = 0.5
 process msfraggerConvert {
     tag "$pepXML"
     
