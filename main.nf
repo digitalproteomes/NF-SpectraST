@@ -136,32 +136,32 @@ process mgf2mzxml {
 }
 
 
-mgf2mzxmlOut.into{mgf2mzxmlOut1; mgf2mzxmlOut2}
+mgf2mzxmlOut.into{mgf2mzxmlOut1; mgf2mzxmlOut2; mgf2mzxmlOut3}
 
 
-process msfraggerIndex {
-    tag "$mzXML_fragger"
+// process msfraggerIndex {
+//     tag "$mzXML_fragger"
     
-    cpus params.fragger_threads
+//     cpus params.fragger_threads
     
-    input:
-    file protein_db from file(params.protein_db)
-    file mzXML_fragger from file(params.empty_mzxml)
-    file fragger_params from file(params.fragger_params)
+//     input:
+//     file protein_db from file(params.protein_db)
+//     file mzXML_fragger from file(params.empty_mzxml)
+//     file fragger_params from file(params.fragger_params)
 
-    output:
-    file '*.pepindex' into msfraggerIndexOut
+//     output:
+//     file '*.pepindex' into msfraggerIndexOut
     
-    script:
-    """
-    sed -i 's,num_threads = 0,num_threads = $params.fragger_threads,' $fragger_params
-    sed -i 's,db_path,$protein_db,' $fragger_params
+//     script:
+//     """
+//     sed -i 's,num_threads = 0,num_threads = $params.fragger_threads,' $fragger_params
+//     sed -i 's,db_path,$protein_db,' $fragger_params
 
-    java -XX:MaxRAMPercentage=80 -XX:+UseContainerSupport \
-    -jar /usr/local/bin/MSFragger.jar $fragger_params $mzXML_fragger
+//     java -XX:MaxRAMPercentage=80 -XX:+UseContainerSupport \
+//     -jar /usr/local/bin/MSFragger.jar $fragger_params $mzXML_fragger
 
-    """
-}
+//     """
+// }
 
 
 process msfraggerSearch {
@@ -173,12 +173,14 @@ process msfraggerSearch {
     
     input:
     file protein_db from file(params.protein_db)
-    file fragger_index from msfraggerIndexOut
-    file mzXML_fragger from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut1)
+//    file fragger_index from msfraggerIndexOut
+    file mzXML_fragger from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut1).collect()
     file fragger_params from file(params.fragger_params)
 
     output:
-    set file("${mzXML_fragger}"), file('*.pepXML') into msfraggerSearchOut
+    //set file("${mzXML_fragger}"), file('*.pepXML') into msfraggerSearchOut
+    file '*.pepXML' into msfraggerSearchOutPep
+    
     
     script:
     """
@@ -191,161 +193,234 @@ process msfraggerSearch {
 }
 
 
-//subsample_ratio = (1 / (file("${params.dda_folder}/*.mzXML").size() + mgf2mzxmlOut2.count().val) )
-//subsample_ratio = (2 / file("${params.dda_folder}/*.mzXML").size())
-subsample_ratio = 0.5
-process msfraggerConvert {
-    tag "$pepXML"
+// //subsample_ratio = (1 / (file("${params.dda_folder}/*.mzXML").size() + mgf2mzxmlOut2.count().val) )    
+// //subsample_ratio = (2 / file("${params.dda_folder}/*.mzXML").size())
+// subsample_ratio = 0.5
+// process msfraggerConvert {
+//     tag "$pepXML"
     
-    input:
-    set mzXML , pepXML from msfraggerSearchOut
-    file unimod from file(params.msfraggerconvert_unimod)
+//     input:
+//     set mzXML , pepXML from msfraggerSearchOut
+//     file unimod from file(params.msfraggerconvert_unimod)
     
-    output:
-    file '*_psms.tsv'
-    file '*_subpsms.tsv' into msfraggerConvertPsmsOut
-    file '*.peakpkl' into msfraggerConvertPklOut
+//     output:
+//     file '*_psms.tsv'
+//     file '*_subpsms.tsv' into msfraggerConvertPsmsOut
+//     file '*.peakpkl' into msfraggerConvertPklOut
     
-    script:
-    """
-    easypqp convert --unimod $unimod \
-    --pepxml $pepXML \
-    --mzxml $mzXML \
-    --subsample_fraction $subsample_ratio
-    """
-}
+//     script:
+//     """
+//     easypqp convert --unimod $unimod \
+//     --pepxml $pepXML \
+//     --mzxml $mzXML \
+//     --subsample_fraction $subsample_ratio
+//     """
+// }
 
 
-// Remove searches with less than 10 decoys or 10 target groups (required by pyprophetScore process)
-// and duplicate resulting channel
-msfraggerConvertPsmsFilteredOut = msfraggerConvertPsmsOut
-    .filter{ it.readLines().grep( ~/.*True.*/ ).size() > 9 }
-    .filter{ it.readLines().grep( ~/.*False.*/ ).size() > 9 }
+// // Remove searches with less than 10 decoys or 10 target groups (required by pyprophetScore process)
+// // and duplicate resulting channel
+// msfraggerConvertPsmsFilteredOut = msfraggerConvertPsmsOut
+//     .filter{ it.readLines().grep( ~/.*True.*/ ).size() > 9 }
+//     .filter{ it.readLines().grep( ~/.*False.*/ ).size() > 9 }
 
 
-msfraggerConvertPsmsFilteredOut.into{msfraggerConvertPsmsOut1; msfraggerConvertPsmsOut2}
+// msfraggerConvertPsmsFilteredOut.into{msfraggerConvertPsmsOut1; msfraggerConvertPsmsOut2}
 
 
-process pyprophetMerge {
-    tag "$subpsms"
+// process pyprophetMerge {
+//     tag "$subpsms"
     
-    input:
-    file subpsms from msfraggerConvertPsmsOut1.collect()
+//     input:
+//     file subpsms from msfraggerConvertPsmsOut1.collect()
 
-    output:
-    file 'pyprophet_learn_Q0.tsv' into pyprophetMergeQ0Out
-    file 'pyprophet_learn_Q1.tsv' into pyprophetMergeQ1Out
-    file 'pyprophet_learn_Q2.tsv' into pyprophetMergeQ2Out
-    file 'pyprophet_learn_Q3.tsv' into pyprophetMergeQ3Out
+//     output:
+//     file 'pyprophet_learn_Q0.tsv' into pyprophetMergeQ0Out
+//     file 'pyprophet_learn_Q1.tsv' into pyprophetMergeQ1Out
+//     file 'pyprophet_learn_Q2.tsv' into pyprophetMergeQ2Out
+//     file 'pyprophet_learn_Q3.tsv' into pyprophetMergeQ3Out
     
-    script:
-    """
-    awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && \$22==0) || NR==1 {{print \$0}}' $subpsms > pyprophet_learn_Q0.tsv; \
-    awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && \$22==1) || NR==1 {{print \$0}}' $subpsms > pyprophet_learn_Q1.tsv; \
-    awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && \$22==2) || NR==1 {{print \$0}}' $subpsms > pyprophet_learn_Q2.tsv; \
-    awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && \$22==3) || NR==1 {{print \$0}}' $subpsms > pyprophet_learn_Q3.tsv
-    """
-}
+//     script:
+//     """
+//     awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && \$22==0) || NR==1 {{print \$0}}' $subpsms > pyprophet_learn_Q0.tsv; \
+//     awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && \$22==1) || NR==1 {{print \$0}}' $subpsms > pyprophet_learn_Q1.tsv; \
+//     awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && \$22==2) || NR==1 {{print \$0}}' $subpsms > pyprophet_learn_Q2.tsv; \
+//     awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} (FNR>1 && \$22==3) || NR==1 {{print \$0}}' $subpsms > pyprophet_learn_Q3.tsv
+//     """
+// }
 
 
-process pyprophetLearn {
-    scratch 'ram-disk'
-    stageInMode "copy"
-    tag "$pyprophetMergeQ0Out - $pyprophetMergeQ1Out - $pyprophetMergeQ2Out - $pyprophetMergeQ3Out"
+// process pyprophetLearn {
+//     scratch 'ram-disk'
+//     stageInMode "copy"
+//     tag "$pyprophetMergeQ0Out - $pyprophetMergeQ1Out - $pyprophetMergeQ2Out - $pyprophetMergeQ3Out"
 
-    input:
-    file q0 from pyprophetMergeQ0Out
-    file q1 from pyprophetMergeQ1Out
-    file q2 from pyprophetMergeQ2Out
-    file q3 from pyprophetMergeQ3Out    
+//     input:
+//     file q0 from pyprophetMergeQ0Out
+//     file q1 from pyprophetMergeQ1Out
+//     file q2 from pyprophetMergeQ2Out
+//     file q3 from pyprophetMergeQ3Out    
 
-    output:
-    file "pyprophet_learn_Q0_weights.csv" into pyprophetLeanQ0Out
-    file "pyprophet_learn_Q0_summary_stat.csv"
-    file "pyprophet_learn_Q0_full_stat.csv"
-    file "pyprophet_learn_Q0_scored.tsv"
-    file "pyprophet_learn_Q0_report.pdf"
-    file "pyprophet_learn_Q1_weights.csv" into pyprophetLeanQ1Out
-    file "pyprophet_learn_Q1_summary_stat.csv"
-    file "pyprophet_learn_Q1_full_stat.csv"
-    file "pyprophet_learn_Q1_scored.tsv"
-    file "pyprophet_learn_Q1_report.pdf"
-    file "pyprophet_learn_Q2_weights.csv" into pyprophetLeanQ2Out
-    file "pyprophet_learn_Q2_summary_stat.csv"
-    file "pyprophet_learn_Q2_full_stat.csv"
-    file "pyprophet_learn_Q2_scored.tsv"
-    file "pyprophet_learn_Q2_report.pdf"
-    file "pyprophet_learn_Q3_weights.csv" into pyprophetLeanQ3Out
-    file "pyprophet_learn_Q3_summary_stat.csv"
-    file "pyprophet_learn_Q3_full_stat.csv"
-    file "pyprophet_learn_Q3_scored.tsv"
-    file "pyprophet_learn_Q3_report.pdf"
-
-
-    shell:
-    '''
-    LINES=$(wc -l !{q0} | cut -f1 -d' ')
-    if [ "$LINES" -gt "1" ]
-    then
-        pyprophet score --in !{q0} --threads=!{params.pyprophet_learn_threads};
-    fi
-
-    LINES=$(wc -l !{q1} | cut -f1 -d' ')
-    if [ "$LINES" -gt "1" ]
-    then
-        pyprophet score --in !{q1} --threads=!{params.pyprophet_learn_threads};
-    fi
-
-    LINES=$(wc -l !{q2} | cut -f1 -d' ')
-    if [ "$LINES" -gt "1" ]
-    then
-        pyprophet score --in !{q2} --threads=!{params.pyprophet_learn_threads};
-    fi
-
-    LINES=$(wc -l !{q3} | cut -f1 -d' ')
-    if [ "$LINES" -gt "1" ]
-    then
-        pyprophet score --in !{q3} --threads=!{params.pyprophet_learn_threads};
-    fi
-    '''
-}
+//     output:
+//     file "pyprophet_learn_Q0_weights.csv" into pyprophetLeanQ0Out
+//     file "pyprophet_learn_Q0_summary_stat.csv"
+//     file "pyprophet_learn_Q0_full_stat.csv"
+//     file "pyprophet_learn_Q0_scored.tsv"
+//     file "pyprophet_learn_Q0_report.pdf"
+//     file "pyprophet_learn_Q1_weights.csv" into pyprophetLeanQ1Out
+//     file "pyprophet_learn_Q1_summary_stat.csv"
+//     file "pyprophet_learn_Q1_full_stat.csv"
+//     file "pyprophet_learn_Q1_scored.tsv"
+//     file "pyprophet_learn_Q1_report.pdf"
+//     file "pyprophet_learn_Q2_weights.csv" into pyprophetLeanQ2Out
+//     file "pyprophet_learn_Q2_summary_stat.csv"
+//     file "pyprophet_learn_Q2_full_stat.csv"
+//     file "pyprophet_learn_Q2_scored.tsv"
+//     file "pyprophet_learn_Q2_report.pdf"
+//     file "pyprophet_learn_Q3_weights.csv" into pyprophetLeanQ3Out
+//     file "pyprophet_learn_Q3_summary_stat.csv"
+//     file "pyprophet_learn_Q3_full_stat.csv"
+//     file "pyprophet_learn_Q3_scored.tsv"
+//     file "pyprophet_learn_Q3_report.pdf"
 
 
-process pyprophetScore {
-    scratch 'ram-disk'
-    stageInMode "copy"
-    tag "$subpsms"
+//     shell:
+//     '''
+//     LINES=$(wc -l !{q0} | cut -f1 -d' ')
+//     if [ "$LINES" -gt "1" ]
+//     then
+//         pyprophet score --in !{q0} --threads=!{params.pyprophet_learn_threads};
+//     fi
+
+//     LINES=$(wc -l !{q1} | cut -f1 -d' ')
+//     if [ "$LINES" -gt "1" ]
+//     then
+//         pyprophet score --in !{q1} --threads=!{params.pyprophet_learn_threads};
+//     fi
+
+//     LINES=$(wc -l !{q2} | cut -f1 -d' ')
+//     if [ "$LINES" -gt "1" ]
+//     then
+//         pyprophet score --in !{q2} --threads=!{params.pyprophet_learn_threads};
+//     fi
+
+//     LINES=$(wc -l !{q3} | cut -f1 -d' ')
+//     if [ "$LINES" -gt "1" ]
+//     then
+//         pyprophet score --in !{q3} --threads=!{params.pyprophet_learn_threads};
+//     fi
+//     '''
+// }
+
+
+// process pyprophetScore {
+//     scratch 'ram-disk'
+//     stageInMode "copy"
+//     tag "$subpsms"
     
-    input:
-    file subpsms from msfraggerConvertPsmsOut2
-    file q0 from pyprophetLeanQ0Out
-    file q1 from pyprophetLeanQ1Out
-    file q2 from pyprophetLeanQ2Out
-    file q3 from pyprophetLeanQ3Out
+//     input:
+//     file subpsms from msfraggerConvertPsmsOut2
+//     file q0 from pyprophetLeanQ0Out
+//     file q1 from pyprophetLeanQ1Out
+//     file q2 from pyprophetLeanQ2Out
+//     file q3 from pyprophetLeanQ3Out
         
+//     output:
+//     file "*_subpsms_scored.tsv" into pyprophetScoreOut
+//     file "*_subpsms_summary_stat.csv"
+//     file "*_subpsms_full_stat.csv"
+//     file "*_subpsms_report.pdf"
+    
+//     script:
+//     if( subpsms.contains('_Q1_') )
+//     """
+//     pyprophet score --in $subpsms --apply_weights=$q1 --pi0_lambda=$params.pyprophetscore_pi0_lambda
+//     """
+//     else if( subpsms.contains('_Q2_') )
+//     """
+//     pyprophet score --in $subpsms --apply_weights=$q2 --pi0_lambda=$params.pyprophetscore_pi0_lambda
+//     """
+//     else if( subpsms.contains('_Q3_') )
+//     """
+//     pyprophet score --in $subpsms --apply_weights=$q3 --pi0_lambda=$params.pyprophetscore_pi0_lambda
+
+//     """
+//     else
+//     """
+//     pyprophet score --in $subpsms --apply_weights=$q0 --pi0_lambda=$params.pyprophetscore_pi0_lambda
+//     """
+// }
+
+
+// // Create Spectral Library
+// process easypqp {
+// //    scratch 'true'
+// //    stageInMode "copy"
+//     tag "$psms"
+    
+//     publishDir 'Results/easypqpLib', mode: 'link'
+    
+//     input:
+//     file psms from pyprophetScoreOut.collect()
+//     file peakpkl from msfraggerConvertPklOut.collect()
+
+//     output:
+//     file "*_global_peaks.tsv" into easypqpOut
+//     file "pyprophet_peptide_report.pdf"
+//     file "pyprophet_protein_report.pdf"
+    
+//     script:
+//     """
+//     easypqp library --psm_fdr_threshold=$params.easypqp_psm_fdr_threshold \
+//     --peptide_fdr_threshold=$params.easypqp_peptide_fdr_threshold \
+//     --protein_fdr_threshold=$params.easypqp_protein_fdr_threshold \
+//     --pi0_lambda=$params.easypqp_pi0_lambda \
+//     --peptide_plot=pyprophet_peptide_report.pdf \
+//     --protein_plot=pyprophet_protein_report.pdf \
+//     $psms \
+//     $peakpkl
+//     """
+// }
+
+
+process pooledTpp {
+    publishDir 'Results/fragger', mode: 'link'
+    
+    input:
+    file pepxmls from msfraggerSearchOutPep.collect()
+    file mzXML_fragger from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut2).collect()
+    file protein_db from file(params.protein_db)
+
     output:
-    file "*_subpsms_scored.tsv" into pyprophetScoreOut
-    file "*_subpsms_summary_stat.csv"
-    file "*_subpsms_full_stat.csv"
-    file "*_subpsms_report.pdf"
+    file 'fragger_merged.pep.xml' into tppPepOut
+    file 'fragger_merged.pep-MODELS.html'
+    file 'fragger_merged.pep.xml.index'
+    file 'fragger_merged.pep.xml.pIstats'
+    file 'fragger_merged.prot-MODELS.html'
+    file 'fragger_merged.prot.xml' into tppProtOut
+    file(protein_db) // Required for ProteinProphet visualization
+
+    // xinteract and refactor links in prot.xml 
+    """
+    xinteract $params.tpp -d$params.decoy -Nfragger_merged.pep.xml $pepxmls
+    sed -ri 's|/work/.{2}/.{30}|/Results/Fragger|'g fragger_merged.prot.xml
+    """
+}
+
+
+process easypqpConvert {
+    input:
+    file pepxml from tppPepOut
+    file mzxml from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut3)
+    file unimod from file(params.msfraggerconvert_unimod)
+
+    output:
+    file '*_psms.tsv' into pepxmlConvertPsmsOut
+    file '*.peakpkl' into pepxmlConvertPklOut    
     
     script:
-    if( subpsms.contains('_Q1_') )
     """
-    pyprophet score --in $subpsms --apply_weights=$q1 --pi0_lambda=$params.pyprophetscore_pi0_lambda
-    """
-    else if( subpsms.contains('_Q2_') )
-    """
-    pyprophet score --in $subpsms --apply_weights=$q2 --pi0_lambda=$params.pyprophetscore_pi0_lambda
-    """
-    else if( subpsms.contains('_Q3_') )
-    """
-    pyprophet score --in $subpsms --apply_weights=$q3 --pi0_lambda=$params.pyprophetscore_pi0_lambda
-
-    """
-    else
-    """
-    pyprophet score --in $subpsms --apply_weights=$q0 --pi0_lambda=$params.pyprophetscore_pi0_lambda
+    easypqp convert --pepxml $pepxml --mzxml $mzxml --unimod $unimod
     """
 }
 
@@ -359,17 +434,18 @@ process easypqp {
     publishDir 'Results/easypqpLib', mode: 'link'
     
     input:
-    file psms from pyprophetScoreOut.collect()
-    file peakpkl from msfraggerConvertPklOut.collect()
+    file psms from pepxmlConvertPsmsOut.collect()
+    file peakpkl from pepxmlConvertPklOut.collect()
 
     output:
-    file "*_global_peaks.tsv" into easypqpOut
+    file "global_peaks.tsv" into easypqpOut
     file "pyprophet_peptide_report.pdf"
     file "pyprophet_protein_report.pdf"
     
     script:
     """
-    easypqp library --psm_fdr_threshold=$params.easypqp_psm_fdr_threshold \
+    easypqp library --out ./global_peaks.tsv \
+    --psm_fdr_threshold=$params.easypqp_psm_fdr_threshold \
     --peptide_fdr_threshold=$params.easypqp_peptide_fdr_threshold \
     --protein_fdr_threshold=$params.easypqp_protein_fdr_threshold \
     --pi0_lambda=$params.easypqp_pi0_lambda \
@@ -388,7 +464,7 @@ process globalTargetPqp {
     file peaks from easypqpOut.flatten()
     
     output:
-    file "*_global_peaks_pqp.tsv" into assayGeneratorOut
+    file "global_peaks_pqp.tsv" into assayGeneratorOut
     
     script:
     """
