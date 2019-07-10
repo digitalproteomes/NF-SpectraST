@@ -5,8 +5,7 @@
 // ProteinProphet on InterProphet
 // Mayu on InterProphet
 
-// This branch filters proteins at 1%FDR and includes all
-// corresponding peptides at 1%FDR
+// TODO update help
 
 if(params.help) {
 
@@ -87,6 +86,7 @@ if(params.help) {
     exit 1
 }
 
+// TODO: Implement user defined publishDir
 
 // NOTE if you already have run DIA-Umpire separately, you can add the
 // pseudo-DDA files to the DDA folder and this step will be skipped
@@ -170,6 +170,7 @@ process msfraggerSearch {
 }
 
 
+// TODO: Consider if this step should be split for different Qs
 process pooledTpp {
     publishDir 'Results/fragger', mode: 'link'
     
