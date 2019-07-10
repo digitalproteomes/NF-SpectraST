@@ -171,6 +171,8 @@ process msfraggerSearch {
 
 
 // TODO: Consider if this step should be split for different Qs
+
+// xinteract all search results as one
 process pooledTpp {
     publishDir 'Results/fragger', mode: 'link'
     
@@ -196,6 +198,8 @@ process pooledTpp {
 }
 
 
+// This needs to run once for each mzXML file we have (even if we have
+// pooled all search results into a single pepXML file)
 process easypqpConvert {
     input:
     file pepxml from tppPepOut
@@ -226,13 +230,13 @@ process easypqp {
     file peakpkl from pepxmlConvertPklOut.collect()
 
     output:
-    file "global_peaks.tsv" into easypqpOut
+    file "library.tsv" into easypqpOut
     file "pyprophet_peptide_report.pdf"
     file "pyprophet_protein_report.pdf"
     
     script:
     """
-    easypqp library --out ./global_peaks.tsv \
+    easypqp library --out library.tsv \
     --psm_fdr_threshold=$params.easypqp_psm_fdr_threshold \
     --peptide_fdr_threshold=$params.easypqp_peptide_fdr_threshold \
     --protein_fdr_threshold=$params.easypqp_protein_fdr_threshold \
@@ -245,59 +249,57 @@ process easypqp {
 }
 
 
-process globalTargetPqp {
+process oswAssayGenerator {
     tag "$peaks"
 
+    publishDir 'Results/easypqpLib', mode: 'link'
+    
     input:
-    file peaks from easypqpOut.flatten()
+    file library from easypqpOut
     
     output:
-    file "global_peaks_pqp.tsv" into assayGeneratorOut
+    file "pqp.tsv" into assayGeneratorOut
     
     script:
-    """
-    OpenSwathAssayGenerator -in $peaks \
-    -out `basename ${peaks} .tsv`_pqp.tsv  \
-    -precursor_upper_mz_limit $params.globaltargetpqp_precursor_upper_mz_limit \
-    -product_lower_mz_limit $params.globaltargetpqp_product_lower_mz_limit \
-    -min_transitions $params.globaltargetpqp_min_transitions \
-    -max_transitions $params.globaltargetpqp_max_transitions
-    """
+    if( $params.oswAssayGenerator_mode == 'OSW' )
+        """
+        OpenSwathAssayGenerator -in $library \
+        -out pqp.tsv  \
+        -precursor_upper_mz_limit $params.oswAssayGenerator_precursor_upper_mz_limit \
+        -product_lower_mz_limit $params.oswAssayGenerator_product_lower_mz_limit \
+        -min_transitions $params.oswAssayGenerator_min_transitions \
+        -max_transitions $params.oswAssayGenerator_max_transitions
+        """
+    else if( $params.oswAssayGenerator_mode == 'IPF' )
+	"""
+        OpenSwathAssayGenerator -in $library
+        -out pqp.tsv
+        -enable_ipf 
+        -unimod_file $params.oswAssayGenerator_unimod
+        -disable_identification_ms2_precursors 
+        -disable_identification_specific_losses
+        """
+    else
+	error "Invalid assay generation mode: ${params.mode}"
 }
 
 
-process globalCombinedPqp {
-    tag "$global_targets"
-    
-    input:
-    file global_targets from assayGeneratorOut.collect()
-
-    output:
-    file 'combined_global_pqp.tsv' into globalCombinedPqpOut
-    
-    script:
-    """
-    awk 'BEGIN {{ FS=\"\t\"; OFS=\"\t\" }} FNR>1 || NR==1 {{print \$1,\$2,\$3,\$4,\$5,\$6,\$7,\$8,\$15,\$18,\$19,\$20,\$25,\$26,\$27,\$28,\$29}}' $global_targets > combined_global_pqp.tsv
-    """
-}
-
-
-process globalCombinedDecoyPqp {
+process oswDecoyGenerator {
     scratch 'ram-disk'
     stageInMode "copy"
-    tag "global_pqp"
+    tag "$pqp"
     
     publishDir 'Results/easypqpLib', mode: 'link'
 
     input:
-    file global_pqp from globalCombinedPqpOut
+    file pqp from assayGeneratorOut
 
     output:
     file 'library.pqp'
     
     script:
     """
-    OpenSwathDecoyGenerator -in $global_pqp -out library.pqp
+    OpenSwathDecoyGenerator -in $pqp -out library.pqp
     """
 }
 
