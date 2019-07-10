@@ -119,7 +119,7 @@ process mgf2mzxml {
 }
 
 
-pDdaFiles.into{pDdaFiles1; pDdaFiles2}
+pDdaFiles.into{pDdaFiles1; pDdaFiles2; pDdaFiles3}
 
 process cometSearch {
     // Search all mzXML files in $params.dda_folder and diaUmpire
@@ -338,6 +338,7 @@ process spectraST {
     val probability from parseMayuOut
     file irt from file(params.rt_file)
     file fix_mods from file(params.st_fix_mods)
+    file mzXML_all from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(pDdaFiles3)
 
     output:
     file "SpecLib.splib"
@@ -348,6 +349,7 @@ process spectraST {
     file "SpecLib_cons.pepidx"
     file "spectrast.log"
     file "SpecLib_cons_conv.mrm" into spectraST
+    file mzXML_all
     
     script:
     """
