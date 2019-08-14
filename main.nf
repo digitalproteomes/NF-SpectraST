@@ -200,6 +200,8 @@ process pooledTpp {
 // This needs to run once for each mzXML file we have (even if we have
 // pooled all search results into a single pepXML file)
 process easypqpConvert {
+    memory = 50.GB
+    
     input:
     file pepxml from tppPepOut
     file mzxml from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut3)
@@ -249,7 +251,7 @@ process easypqp {
 
 
 process oswAssayGenerator {
-    tag "$peaks"
+    tag "$library"
 
     publishDir 'Results/easypqpLib', mode: 'link'
     
@@ -260,7 +262,7 @@ process oswAssayGenerator {
     file "pqp.tsv" into assayGeneratorOut
     
     script:
-    if( $params.oswAssayGenerator_mode == 'OSW' )
+    if( params.oswAssayGenerator_mode == 'OSW' )
         """
         OpenSwathAssayGenerator -in $library \
         -out pqp.tsv  \
@@ -269,7 +271,7 @@ process oswAssayGenerator {
         -min_transitions $params.oswAssayGenerator_min_transitions \
         -max_transitions $params.oswAssayGenerator_max_transitions
         """
-    else if( $params.oswAssayGenerator_mode == 'IPF' )
+    else if( params.oswAssayGenerator_mode == 'IPF' )
 	"""
         OpenSwathAssayGenerator -in $library
         -out pqp.tsv
