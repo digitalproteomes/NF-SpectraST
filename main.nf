@@ -173,23 +173,23 @@ process peptideProphet {
     tag "$pepxml"
     
     input:
-    file pepxml from msfraggerSearchOutPep
+    file pepxml from msfraggerSearchOutPep.flatten()
 
     output:
     file '*.pep.xml' into peptideProphetOut
 
     script:
     """
-    InteractParser ${pepxml.baseName}.pep.xml ${pepxml} DECOY=$params.decoy ACCMASS PPM NONPARAM DECOYPROBS 
-    PeptideProphetParser ${pepxml.baseName}.pep.xml 
+    InteractParser ${pepxml.baseName}.pep.xml ${pepxml} 
+    PeptideProphetParser ${pepxml.baseName}.pep.xml DECOY=$params.decoy ACCMASS PPM NONPARAM DECOYPROBS 
     """
 }
 
 
-process iprophet {
+process iProphet {
     cpus params.iprophet_threads
     
-    publishDir 'Resutls/iProphet', mode: 'link'
+    publishDir 'Results/iProphet', mode: 'link'
 
     input:
     file pepxmls from peptideProphetOut.collect()
@@ -205,8 +205,8 @@ process iprophet {
 
 
 
-// This needs to run once for each mzXML file we have (even if we have
-// pooled all search results into a single pepXML file)
+// This needs to run once for each mzXML file we have (even if we were to
+// pool all search results into a single pepXML file)
 process easypqpConvert {
     memory = 50.GB
     
@@ -249,7 +249,7 @@ process easypqp {
     --psm_fdr_threshold=$params.easypqp_psm_fdr_threshold \
     --peptide_fdr_threshold=$params.easypqp_peptide_fdr_threshold \
     --protein_fdr_threshold=$params.easypqp_protein_fdr_threshold \
-    --rt_lowess_fraction=$params_lowess_fraction \
+    --rt_lowess_fraction=$params.easypqp_lowess_fraction \
     --pi0_lambda=$params.easypqp_pi0_lambda \
     --peptide_plot=pyprophet_peptide_report.pdf \
     --protein_plot=pyprophet_protein_report.pdf \
