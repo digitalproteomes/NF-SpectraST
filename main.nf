@@ -137,7 +137,7 @@ process mgf2mzxml {
 }
 
 
-mgf2mzxmlOut.into{mgf2mzxmlOut1; mgf2mzxmlOut2; mgf2mzxmlOut3}
+mgf2mzxmlOut.into{mgf2mzxmlOut1; mgf2mzxmlOut2}
 
 
 process msfraggerSearch {
@@ -169,32 +169,40 @@ process msfraggerSearch {
 }
 
 
-// TODO: Consider if this step should be split for different Qs
-
-// xinteract all search results as one
-process pooledTpp {
-    publishDir 'Results/fragger', mode: 'link'
+process peptideProphet {
+    tag "$pepxml"
     
     input:
-    file pepxmls from msfraggerSearchOutPep.collect()
-    file mzXML_fragger from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut2).collect()
-    file protein_db from file(params.protein_db)
+    file pepxml from msfraggerSearchOutPep
 
     output:
-    file 'fragger_merged.pep.xml' into tppPepOut
-    file 'fragger_merged.pep-MODELS.html'
-    file 'fragger_merged.pep.xml.index'
-    file 'fragger_merged.pep.xml.pIstats'
-    file 'fragger_merged.prot-MODELS.html'
-    file 'fragger_merged.prot.xml' into tppProtOut
-    file(protein_db) // Required for ProteinProphet visualization
+    file '*.pep.xml' into peptideProphetOut
 
-    // xinteract and refactor links in prot.xml 
+    script:
     """
-    xinteract $params.tpp -d$params.decoy -Nfragger_merged.pep.xml $pepxmls
-    sed -ri 's|/work/.{2}/.{30}|/Results/Fragger|'g fragger_merged.prot.xml
+    InteractParser ${pepxml.baseName}.pep.xml ${pepxml} DECOY=$params.decoy ACCMASS PPM NONPARAM DECOYPROBS 
+    PeptideProphetParser ${pepxml.baseName}.pep.xml 
     """
 }
+
+
+process iprophet {
+    cpus params.iprophet_threads
+    
+    publishDir 'Resutls/iProphet', mode: 'link'
+
+    input:
+    file pepxmls from peptideProphetOut.collect()
+
+    output:
+    file 'iprophet.pep.xml' into iProphetOut
+
+    script:
+    """
+    InterProphetParser THREADS=$params.iprophet_threads DECOY=$params.decoy ${pepxmls} iprophet.pep.xml
+    """
+}
+
 
 
 // This needs to run once for each mzXML file we have (even if we have
@@ -203,9 +211,9 @@ process easypqpConvert {
     memory = 50.GB
     
     input:
-    file pepxml from tppPepOut
-    file mzxml from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut3)
-    file unimod from file(params.msfraggerconvert_unimod)
+    file pepxml from iProphetOut
+    file mzxml from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut2)
+    file unimod from file(params.unimod)
 
     output:
     file '*_psms.tsv' into pepxmlConvertPsmsOut
@@ -213,7 +221,7 @@ process easypqpConvert {
     
     script:
     """
-    easypqp convert --pepxml $pepxml --mzxml $mzxml --unimod $unimod
+    easypqp convert --unimod $unimod --pepxml $pepxml --psms ${mzxml.baseName}_psms.tsv --spectra $mzxml --peaks ${mzxml.baseName}.peakpkl
     """
 }
 
@@ -241,6 +249,7 @@ process easypqp {
     --psm_fdr_threshold=$params.easypqp_psm_fdr_threshold \
     --peptide_fdr_threshold=$params.easypqp_peptide_fdr_threshold \
     --protein_fdr_threshold=$params.easypqp_protein_fdr_threshold \
+    --rt_lowess_fraction=$params_lowess_fraction \
     --pi0_lambda=$params.easypqp_pi0_lambda \
     --peptide_plot=pyprophet_peptide_report.pdf \
     --protein_plot=pyprophet_protein_report.pdf \
@@ -276,7 +285,7 @@ process oswAssayGenerator {
         OpenSwathAssayGenerator -in $library
         -out pqp.tsv
         -enable_ipf 
-        -unimod_file $params.oswAssayGenerator_unimod
+        -unimod_file $params.unimod
         -disable_identification_ms2_precursors 
         -disable_identification_specific_losses
         """
