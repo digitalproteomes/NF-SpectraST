@@ -87,6 +87,10 @@ if(params.help) {
 
 // TODO: Implement user defined publishDir
 
+dda_filenames = Channel
+    .fromPath("$params.dda_folder/*.mzXML")
+    .flatMap{ it -> it.name }
+
 // NOTE if you already have run DIA-Umpire separately, you can add the
 // pseudo-DDA files to the DDA folder and this step will be skipped
 process diaUmpire {
@@ -100,10 +104,14 @@ process diaUmpire {
     input:
     file dia_file from file("${params.dia_folder}/*.mzXML")
     file diau_se_params from file(params.diau_se_params)
-
+    val diaumpire_done from dda_filenames.collect()
+    
     output:
     file '*.mgf' into diaUmpireOut
 
+    when:
+    ! diaumpire_done.contains(todo.name)
+    
     script:
     """
     sed -i 's,Thread = 0,Thread = $params.diau_threads,' $diau_se_params
