@@ -41,11 +41,10 @@ if(params.help) {
     exit 1
 }
 
-// TODO: Implement user defined publishDir
 
 dda_filenames = Channel
     .fromPath("$params.dda_folder/*.mzXML")
-    .flatMap{ it -> it.name }
+    .flatMap{ it -> "${it.baseName}".replaceAll(/_Q[0-9]/,"") }
 
 // NOTE if you already have run DIA-Umpire separately, you can add the
 // pseudo-DDA files to the DDA folder and this step will be skipped
@@ -63,7 +62,7 @@ process diaUmpire {
     val diaumpire_done from dda_filenames.collect()
 
     when:
-    ! diaumpire_done.contains(dia_file.name)
+    ! diaumpire_done.contains(dia_file.baseName)
         
     output:
     file '*.mgf' into diaUmpireOut
@@ -75,11 +74,6 @@ process diaUmpire {
     """
 
 }
-    // script:
-    // """
-    // sed -i 's,Thread = 0,Thread = $params.diau_threads,' $diau_se_params
-    // dia_umpire_se -XX:MaxRAMPercentage=80 -XX:+UseContainerSupport $dia_file $diau_se_params
-    // """
 
 
 process mgf2mzxml {
@@ -113,22 +107,22 @@ process msfraggerSearch {
     
     input:
     file protein_db from file(params.protein_db)
-//    file fragger_index from msfraggerIndexOut
-    file mzXML_fragger from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut1).collect()
+    file mzXML_fragger from Channel.fromPath("${params.dda_folder}/*.mzXML")
+	.concat(mgf2mzxmlOut1)
+	.collect()
     file fragger_params from file(params.fragger_params)
 
     output:
-    //set file("${mzXML_fragger}"), file('*.pepXML') into msfraggerSearchOut
     file '*.pepXML' into msfraggerSearchOutPep
     
     
     script:
     """
     sed -i 's,num_threads = 0,num_threads = $params.fragger_threads,' "$fragger_params"
-    sed -i 's,db_path,$protein_db,' $fragger_params
+    sed -i 's,db_path,$protein_db,' "$fragger_params"
 
     java -XX:MaxRAMPercentage=80 -XX:+UseContainerSupport \
-    -jar /usr/local/bin/MSFragger.jar $fragger_params "$mzXML_fragger"
+    -jar /usr/local/bin/MSFragger.jar $fragger_params $mzXML_fragger
     """
 }
 
@@ -153,6 +147,8 @@ process peptideProphet {
 
 
 process iProphet {
+    tag "$pepxmls"
+    
     cpus params.iprophet_threads
     
     publishDir 'Results/iProphet', mode: 'link'
@@ -170,10 +166,11 @@ process iProphet {
 }
 
 
-
 // This needs to run once for each mzXML file we have (even if we were to
 // pool all search results into a single pepXML file)
 process easypqpConvert {
+    tag "$pepxml"
+    
     memory = 50.GB
     
     input:
