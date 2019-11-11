@@ -98,6 +98,31 @@ process mgf2mzxml {
 mgf2mzxmlOut.into{mgf2mzxmlOut1; mgf2mzxmlOut2; mgf2mzxmlOut3}
 
 
+process msfraggerIndex {
+    cpus params.fragger_threads
+    
+    input:
+    file protein_db from file(params.protein_db)
+    file fragger_params from file(params.fragger_params)
+
+    output:
+    file '*.pepindex' into msfraggerIndexOut
+    
+    script:
+    """
+    sed -i 's,num_threads = 0,num_threads = $params.fragger_threads,' "$fragger_params"
+    sed -i 's,db_path,$protein_db,' "$fragger_params"
+
+    java -XX:MaxRAMPercentage=80 -XX:+UseContainerSupport \
+    -jar /usr/local/bin/MSFragger.jar $fragger_params
+    """
+}
+
+// If you need to generate a larger index database you might have to
+// explicitly increase heap size
+//
+//    java -Xmx100G -jar /usr/local/bin/MSFragger.jar $fragger_params
+
 process msfraggerSearch {
     tag "$mzXML_fragger"
     
@@ -109,8 +134,8 @@ process msfraggerSearch {
     file protein_db from file(params.protein_db)
     file mzXML_fragger from Channel.fromPath("${params.dda_folder}/*.mzXML")
 	.concat(mgf2mzxmlOut1)
-	.collect()
     file fragger_params from file(params.fragger_params)
+    file msfraggerIndex from msfraggerIndexOut
 
     output:
     file '*.pepXML' into msfraggerSearchOutPep
@@ -121,11 +146,12 @@ process msfraggerSearch {
     sed -i 's,num_threads = 0,num_threads = $params.fragger_threads,' "$fragger_params"
     sed -i 's,db_path,$protein_db,' "$fragger_params"
 
-    java -XX:MaxRAMPercentage=80 -XX:+UseContainerSupport \
+    java -Xmx100G \
     -jar /usr/local/bin/MSFragger.jar $fragger_params $mzXML_fragger
     """
 }
 
+//java -XX:MaxRAMPercentage=80 -XX:+UseContainerSupport \
 
 process peptideProphet {
     tag "$pepxml"
