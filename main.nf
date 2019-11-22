@@ -157,7 +157,7 @@ process iProphet {
 
     script:
     """
-    InterProphetParser THREADS=$params.iprophet_threads DECOY=$params.decoy "${pepxmls}" iprophet.pep.xml
+    InterProphetParser THREADS=$params.iprophet_threads DECOY=$params.decoy ${pepxmls} iprophet.pep.xml
     """
 }
 
@@ -167,7 +167,7 @@ process iProphet {
 process easypqpConvert {
     tag "$pepxml"
     
-    memory = 50.GB
+    memory = 1.GB
     
     input:
     file pepxml from iProphetOut
@@ -180,7 +180,7 @@ process easypqpConvert {
     
     script:
     """
-    easypqp convert --unimod "$unimod" --pepxml "$pepxml" --psms "${mzxml.baseName}_psms.tsv" --spectra $mzxml --peaks "${mzxml.baseName}.peakpkl"
+    easypqp convert --unimod $unimod --pepxml $pepxml --psms ${mzxml.baseName}_psms.tsv --spectra $mzxml --peaks ${mzxml.baseName}.peakpkl
     """
 }
 
@@ -212,8 +212,8 @@ process easypqp {
     --pi0_lambda=$params.easypqp_pi0_lambda \
     --peptide_plot=pyprophet_peptide_report.pdf \
     --protein_plot=pyprophet_protein_report.pdf \
-    "$psms" \
-    "$peakpkl"
+    $psms \
+    $peakpkl
     """
 }
 
@@ -232,7 +232,7 @@ process oswAssayGenerator {
     script:
     if( params.oswAssayGenerator_mode == 'OSW' )
         """
-        OpenSwathAssayGenerator -in "$library" \
+        OpenSwathAssayGenerator -in $library \
         -out library_targets.pqp  \
         -precursor_upper_mz_limit $params.oswAssayGenerator_precursor_upper_mz_limit \
         -product_lower_mz_limit $params.oswAssayGenerator_product_lower_mz_limit \
@@ -241,7 +241,7 @@ process oswAssayGenerator {
         """
     else if( params.oswAssayGenerator_mode == 'IPF' )
 	"""
-        OpenSwathAssayGenerator -in "$library"
+        OpenSwathAssayGenerator -in $library
         -out library_targets.pqp
         -enable_ipf 
         -unimod_file $params.unimod
@@ -268,7 +268,7 @@ process oswDecoyGenerator {
     
     script:
     """
-    OpenSwathDecoyGenerator -in "$pqp" -out library.pqp
+    OpenSwathDecoyGenerator -in $pqp -out library.pqp
     """
 }
 
