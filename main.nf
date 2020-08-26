@@ -142,9 +142,7 @@ process peptideProphet {
 
     output:
     file '*.pep.xml' into peptideProphetOut
-    file '*.pep.xml.index'
     file '*.pep.xml.pIstats'
-    file '*.pep-MODELS.html'
     
     script:
     """
@@ -168,6 +166,7 @@ process iProphet {
     output:
     file 'iprophet.pep.xml' into iProphetOut
 
+    
     script:
     """
     InterProphetParser THREADS=$params.iprophet_threads DECOY=$params.decoy ${pepxmls} iprophet.pep.xml
@@ -180,7 +179,7 @@ process iProphet {
 process easypqpConvert {
     tag "$pepxml"
     
-    memory = 1.GB
+    memory = 10.GB
     
     input:
     file pepxml from iProphetOut
@@ -188,12 +187,12 @@ process easypqpConvert {
     file unimod from file(params.unimod)
 
     output:
-    file '*_psms.tsv' into pepxmlConvertPsmsOut
+    file '*.psmpkl' into pepxmlConvertPsmsOut
     file '*.peakpkl' into pepxmlConvertPklOut    
     
     script:
     """
-    easypqp convert --unimod $unimod --pepxml $pepxml --psms ${mzxml.baseName}_psms.tsv --spectra $mzxml --peaks ${mzxml.baseName}.peakpkl
+    easypqp convert --unimod $unimod --pepxml $pepxml --psms ${mzxml.baseName}.psmpkl --spectra $mzxml --peaks ${mzxml.baseName}.peakpkl
     """
 }
 
