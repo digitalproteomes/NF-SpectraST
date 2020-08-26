@@ -100,8 +100,7 @@ mgf2mzxmlOut.into{mgf2mzxmlOut1; mgf2mzxmlOut2; mgf2mzxmlOut3}
 
 process cometSearch {
     tag "$mzXML"
-
-    cache 'deep'
+    
     cpus params.comet_threads
     // Human, 3 variable mods, semi, 2 missed cleavages and some margin for safety
     memory 30.GB
