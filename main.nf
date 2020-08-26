@@ -70,7 +70,7 @@ process diaUmpire {
     script:
     """
     sed -i 's,Thread = 0,Thread = $params.diau_threads,' "$diau_se_params"
-    java -jar -Xmx32G /home/biodocker/bin/DIA-Umpire/v2.1.2/DIA_Umpire_SE.jar "$dia_file" "$diau_se_params"
+    java -jar -Xmx32G /DIA_Umpire_SE.jar "$dia_file" "$diau_se_params"
     """
 
 }
