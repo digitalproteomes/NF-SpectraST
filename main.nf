@@ -102,7 +102,9 @@ process cometSearch {
     tag "$mzXML"
     
     cpus params.comet_threads
-    
+    // Human, 3 variable mods, semi, 2 missed cleavages and some margin for safety
+    memory 30.GB
+
     publishDir 'Results/Comet', mode: 'link'
 
     input:
@@ -118,30 +120,41 @@ process cometSearch {
     # Set proteins DB
     sed -i s,db_path,$protein_db, $comet_params
     sed -i 's,num_threads = 0,num_threads = ${params.comet_threads},' $comet_params
-    comet $mzXML
+
+    comet -P$comet_params $mzXML
+    sed -ri 's|/tmp/nxf.{11}|${workflow.launchDir}/Results/Comet/|'g ${mzXML.simpleName}.pep.xml
+    sed -ri 's|<search_database local_path="|<search_database local_path="${workflow.launchDir}/Results/Comet/|'g ${mzXML.simpleName}.pep.xml
     """
 }
 
 
+// Run PeptideProphet on each search output individually
 process peptideProphet {
     tag "$pepxml"
+
+    publishDir 'Results/PeptideProphet', mode: 'link'
     
     input:
+    file protein_db from file(params.protein_db)
     file pepxml from cometSearchPepxmlOut
     // TODO: figure out how to link only the required mzXML file, rather than all.
-    file mzxml from cometSearchMzxmlOut
+    file mzxml from cometSearchMzxmlOut.collect()
 
     output:
     file '*.pep.xml' into peptideProphetOut
-
+    file '*.pep.xml.index'
+    file '*.pep.xml.pIstats'
+    file '*.pep-MODELS.html'
+    
     script:
     """
     InteractParser "${pepxml.baseName}".pep.xml "${pepxml}"
-    PeptideProphetParser "${pepxml.baseName}".pep.xml DECOY=$params.decoy ACCMASS PPM NONPARAM DECOYPROBS 
+    PeptideProphetParser "${pepxml.baseName}".pep.xml DECOY=$params.decoy ACCMASS PPM NONPARAM DECOYPROBS LEAVE PI
     """
 }
 
 
+// Run iProphet on all PeptideProphet files at once.
 process iProphet {
     tag "$pepxmls"
     
