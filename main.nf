@@ -10,14 +10,20 @@ if(params.help) {
     log.info "                  NOTE: pseudoDDA files will be saved here."
     log.info "  --dia_folder:	Path to DIA files ($params.dia_folder)"
     log.info "  --protein_db:	Protein database to search against ($params.protein_db)"
+    log.info "  --unimod:	Unimod file location ($params.unimod)"
     log.info ""
     log.info " ** DIA-Umpire parameters **"
     log.info "  --diau_threads:		Number of threads to use for DIA-Umpire SE ($params.diau_threads)"
     log.info "  --diau_se_params:	DIA-Umpire parameter file for SE ($params.diau_se_params)"
     log.info ""
+    log.info " ** Comet parameters **"
+    log.info "  --comet_threads:	Threads to use for comet search ($params.comet_threads)"
+    log.info "  --comet_params:		The comet params file ($params.comet_params)"    
+    log.info ""
     log.info " ** TPP parameters **"
-    log.info "  --tpp:		xinteract parameters for tpp analysis ($params.tpp)"
-    log.info "  --decoy:	Decoy prefix in protein database ($params.decoy)"
+    log.info "  --peptideProphet_params:	PeptideProphet parameters ($params.peptideProphet_params)"
+    log.info "  --decoy:			Decoy prefix in protein database ($params.decoy)"
+    log.info "  --iprophet_threads:		Threads to use for iprophet ($params.iprophet_threads)"
     log.info ""
     log.info " ** easypqp library generation parameters **"
     log.info "  --easypqp_pi0_lambda:			pi0 lamdba interval for library generation ($params.easypqp_pi0_lambda)"
@@ -144,7 +150,7 @@ process peptideProphet {
     script:
     """
     InteractParser "${pepxml.baseName}".pep.xml "${pepxml}"
-    PeptideProphetParser "${pepxml.baseName}".pep.xml DECOY=$params.decoy ACCMASS PPM NONPARAM DECOYPROBS LEAVE PI
+    PeptideProphetParser "${pepxml.baseName}".pep.xml DECOY=$params.decoy $params.peptideProphet_params
     """
 }
 
@@ -258,13 +264,11 @@ process oswAssayGenerator {
         -disable_identification_specific_losses
         """
     else
-	error "Invalid assay generation mode: ${params.mode}"
+	error "Invalid assay generation mode: ${params.oswAssayGenerator_mode}"
 }
 
 
 process oswDecoyGenerator {
-    //scratch 'ram-disk'
-    //stageInMode "copy"
     tag "$pqp"
     
     publishDir 'Results/easypqpLib', mode: 'link'
