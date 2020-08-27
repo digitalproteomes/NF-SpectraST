@@ -107,7 +107,7 @@ process cometSearch {
 
     publishDir 'Results/Comet', mode: 'link'
 
-    cache 'deep'
+    cache 'lenient'
     
     input:
     file mzXML from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut1)
@@ -268,7 +268,7 @@ process oswAssayGenerator {
 
 
 process oswDecoyGenerator {
-    scratch 'ram-disk'
+    //scratch 'ram-disk'
     stageInMode "copy"
     tag "$pqp"
     
