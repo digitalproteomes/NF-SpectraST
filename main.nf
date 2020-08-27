@@ -107,6 +107,8 @@ process cometSearch {
 
     publishDir 'Results/Comet', mode: 'link'
 
+    cache 'deep'
+    
     input:
     file mzXML from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut1)
     file comet_params from file(params.comet_params)
