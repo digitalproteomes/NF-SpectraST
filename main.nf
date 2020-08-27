@@ -50,8 +50,6 @@ dda_filenames = Channel
 // NOTE if you already have run DIA-Umpire separately, you can add the
 // pseudo-DDA files to the DDA folder and this step will be skipped
 process diaUmpire {
-    scratch 'ram-disk'
-    stageInMode "copy"
     tag "$dia_file"
 
     cpus params.diau_threads
@@ -223,7 +221,7 @@ process easypqp {
     --psm_fdr_threshold=$params.easypqp_psm_fdr_threshold \
     --peptide_fdr_threshold=$params.easypqp_peptide_fdr_threshold \
     --protein_fdr_threshold=$params.easypqp_protein_fdr_threshold \
-    --rt_lowess_fraction=$params.easypqp_lowess_fraction \
+    --rt_lowess_fraction=$params.easypqp_rt_lowess_fraction \
     --pi0_lambda=$params.easypqp_pi0_lambda \
     --peptide_plot=pyprophet_peptide_report.pdf \
     --protein_plot=pyprophet_protein_report.pdf \
