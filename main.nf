@@ -269,7 +269,7 @@ process oswAssayGenerator {
 
 process oswDecoyGenerator {
     //scratch 'ram-disk'
-    stageInMode "copy"
+    //stageInMode "copy"
     tag "$pqp"
     
     publishDir 'Results/easypqpLib', mode: 'link'
