@@ -83,6 +83,8 @@ process mgf2mzxml {
 
     publishDir params.dda_folder, mode: 'link'
 
+    cache 'lenient'
+
     input:
     // For each DIA file DIA-Umpire will generate 3 pseudo mgf files
     file mgf_file from diaUmpireOut.flatten()
