@@ -50,6 +50,8 @@ dda_filenames = Channel
 // NOTE if you already have run DIA-Umpire separately, you can add the
 // pseudo-DDA files to the DDA folder and this step will be skipped
 process diaUmpire {
+    scratch 'ram-disk'
+    stageInMode "copy"
     tag "$dia_file"
 
     cpus params.diau_threads
@@ -144,11 +146,13 @@ process peptideProphet {
     output:
     file '*.pep.xml' into peptideProphetOut
     file '*.pep.xml.pIstats'
+    file '*.pep-MODELS.html'
     
     script:
     """
     InteractParser "${pepxml.baseName}".pep.xml "${pepxml}"
     PeptideProphetParser "${pepxml.baseName}".pep.xml DECOY=$params.decoy $params.peptideProphet_params
+    tpp_models.pl "${pepxml.baseName}".pep.xml
     """
 }
 
@@ -166,14 +170,33 @@ process iProphet {
 
     output:
     file 'iprophet.pep.xml' into iProphetOut
+    file 'iprophet.pep-MODELS.html'
 
     
     script:
     """
     InterProphetParser THREADS=$params.iprophet_threads DECOY=$params.decoy ${pepxmls} iprophet.pep.xml
+    tpp_models.pl iprophet.pep.xml
     """
 }
 
+
+iProphetOut.into{ iProphetOut1; iProphetOut2}
+
+// Run ProphetProphet on the output of iProphet
+process proteinProphet {
+    input:
+    file pepxml from iProphetOut1
+
+    output:
+    file '*.prot.xml'
+    file '*.prot-MODELS.html'
+    
+    script:
+    """
+    ProteinProphet $pepxml IPROPHET
+    """
+}
 
 // This needs to run once for each mzXML file we have (even if we were to
 // pool all search results into a single pepXML file)
@@ -183,7 +206,7 @@ process easypqpConvert {
     memory = 10.GB
     
     input:
-    file pepxml from iProphetOut
+    file pepxml from iProphetOut2
     file mzxml from Channel.fromPath("${params.dda_folder}/*.mzXML").concat(mgf2mzxmlOut3)
     file unimod from file(params.unimod)
 
