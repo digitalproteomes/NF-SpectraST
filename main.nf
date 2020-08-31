@@ -189,6 +189,7 @@ iProphetOut.into{ iProphetOut1; iProphetOut2}
 process proteinProphet {
     input:
     file pepxml from iProphetOut1
+    file protein_db from file(params.protein_db)
 
     output:
     file '*.prot.xml'
@@ -196,7 +197,8 @@ process proteinProphet {
     
     script:
     """
-    ProteinProphet $pepxml ${pepxml.baseName}.prot.xml IPROPHET
+    ProteinProphet $pepxml iprophet.prot.xml IPROPHET
+    tpp_models.pl iprophet.prot.xml
     """
 }
 
