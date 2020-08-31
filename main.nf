@@ -196,7 +196,7 @@ process proteinProphet {
     
     script:
     """
-    ProteinProphet $pepxml IPROPHET
+    ProteinProphet $pepxml ${pepxml.baseName}.prot.xml IPROPHET
     """
 }
 
@@ -304,7 +304,8 @@ process oswDecoyGenerator {
     
     script:
     """
-    OpenSwathDecoyGenerator -in $pqp -out library.pqp
+    OpenSwathDecoyGenerator -in $pqp \
+    -out library.pqp
     """
 }
 
