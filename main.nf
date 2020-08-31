@@ -187,6 +187,10 @@ iProphetOut.into{ iProphetOut1; iProphetOut2}
 
 // Run ProphetProphet on the output of iProphet
 process proteinProphet {
+    tag "$pepxml"
+    
+    publishDir 'Results/ProteinProphet', mode: 'link'
+    
     input:
     file pepxml from iProphetOut1
     file protein_db from file(params.protein_db)
