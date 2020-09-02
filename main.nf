@@ -228,18 +228,91 @@ process easypqpConvert {
     """
 }
 
+pepxmlConvertPsmsOut.into{pepxmlConvertPsmsOut1; pepxmlConvertPsmsOut2}
+pepxmlConvertPklOut.into{pepxmlConvertPklOut1; pepxmlConvertPklOut2}
 
-// Create Spectral Library
-process easypqp {
-//    scratch 'true'
-//    stageInMode "copy"
+// Create library for RT alignment
+//
+// We are only going to keep IDs from Q1 to minimize the risk of
+// reducing the library to IDs that are not seen in the DIA runs.
+pepxmlConvertPsmsRTOut = pepxmlConvertPsmsOut1.filter( ~/.*_Q1.psmpkl/ )
+pepxmlConvertPklRTOut = pepxmlConvertPklOut1.filter( ~/.*_Q1.peakpkl/ )
+process easypqpQ1 {
     tag "$psms"
     
     publishDir 'Results/easypqpLib', mode: 'link'
     
     input:
-    file psms from pepxmlConvertPsmsOut.collect()
-    file peakpkl from pepxmlConvertPklOut.collect()
+    file psms from pepxmlConvertPsmsRTOut.collect()
+    file peakpkl from pepxmlConvertPklRTOut.collect()
+
+    output:
+    file "libraryp_RT.tsv" into easypqpRTOut
+    file "pyprophet_peptide_report_RT.pdf"
+    file "pyprophet_protein_report_RT.pdf"
+    
+    script:
+    """
+    easypqp library --out library_Q1.tsv \
+    --psm_fdr_threshold=$params.easypqp_psm_fdr_threshold \
+    --peptide_fdr_threshold=$params.easypqp_peptide_fdr_threshold \
+    --protein_fdr_threshold=$params.easypqp_protein_fdr_threshold \
+    --rt_lowess_fraction=$params.easypqp_rt_lowess_fraction \
+    --pi0_lambda=$params.easypqp_pi0_lambda \
+    --peptide_plot=pyprophet_peptide_report_Q1.pdf \
+    --protein_plot=pyprophet_protein_report_Q1.pdf \
+    $psms \
+    $peakpkl
+    """
+}
+
+// Assay generation for RT alignment library.
+//
+// NOTE we don't need decoys in this one since it is only used for
+// alignment and not for searches
+process oswAssayGeneratorRT {
+    tag "$library"
+
+    publishDir 'Results/easypqpLib', mode: 'link'
+    
+    input:
+    file library from easypqpRTOut
+    
+    output:
+    file "library_targets_RT.pqp"
+    
+    script:
+    if( params.oswAssayGenerator_mode == 'OSW' )
+        """
+        OpenSwathAssayGenerator -in $library \
+        -out library_targets.pqp  \
+        -precursor_upper_mz_limit $params.oswAssayGenerator_precursor_upper_mz_limit \
+        -product_lower_mz_limit $params.oswAssayGenerator_product_lower_mz_limit \
+        -min_transitions $params.oswAssayGenerator_min_transitions \
+        -max_transitions $params.oswAssayGenerator_max_transitions
+        """
+    else if( params.oswAssayGenerator_mode == 'IPF' )
+	"""
+        OpenSwathAssayGenerator -in $library
+        -out library_targets.pqp
+        -enable_ipf 
+        -unimod_file $params.unimod
+        -disable_identification_ms2_precursors 
+        -disable_identification_specific_losses
+        """
+    else
+	error "Invalid assay generation mode: ${params.oswAssayGenerator_mode}"
+}
+
+// Create Spectral Library
+process easypqp {
+    tag "$psms"
+    
+    publishDir 'Results/easypqpLib', mode: 'link'
+    
+    input:
+    file psms from pepxmlConvertPsmsOut2.collect()
+    file peakpkl from pepxmlConvertPklOut2.collect()
 
     output:
     file "library.tsv" into easypqpOut
