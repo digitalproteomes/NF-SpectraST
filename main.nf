@@ -318,6 +318,8 @@ process easypqp {
     file "library.tsv" into easypqpOut
     file "pyprophet_peptide_report.pdf"
     file "pyprophet_protein_report.pdf"
+    file "easypqp_rt_alignment*.pdf"
+    file "*_run_peaks.tsv"
     
     script:
     """
