@@ -275,7 +275,7 @@ process filterPqp {
 }
 
 filterPqpPsmOut.into{filterPqpPsmOut1; filterPqpPsmOut2}
-filterPeakPsmOut.into{filterPeakPsmOut1; filterPeakPsmOut2}
+filterPqpPeakOut.into{filterPqpPeakOut1; filterPqpPeakOut2}
 
 // Create library for RT alignment
 //
@@ -357,7 +357,7 @@ process easypqp {
     
     input:
     file psms from filterPqpPsmOut2.collect()
-    file peakpkl from filterPeakPsmOut2.collect()
+    file peakpkl from filterPppPeakOut2.collect()
 
     output:
     file "library.tsv" into easypqpOut
