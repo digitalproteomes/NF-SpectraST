@@ -26,10 +26,7 @@ if(params.help) {
     log.info "  --iprophet_threads:		Threads to use for iprophet ($params.iprophet_threads)"
     log.info ""
     log.info " ** easypqp library generation parameters **"
-    log.info "  --easypqp_pi0_lambda:			pi0 lamdba interval for library generation ($params.easypqp_pi0_lambda)"
-    log.info "  --easypqp_psm_fdr_threshold:		PSM FDR for library generation ($params.easypqp_psm_fdr_threshold)"
-    log.info "  --easypqp_peptide_fdr_threshold:	peptide FDR for library generation ($params.easypqp_peptide_fdr_threshold)"
-    log.info "  --easypqp_protein_fdr_threshold:	protein FDR for library generation ($params.easypqp_protein_fdr_threshold)"
+    log.info "  --easypqp_rt_lowess_fraction:	Fraction od data point to use for RT regression ($params.easypqp_rt_lowess_fraction)"
     log.info ""
     log.info " ** oswAssayGeneartor parameters **"
     log.info "  --oswAssayGenerator_mode:			OSW or IPF ($params.oswAssayGenerator_mode)"
@@ -183,7 +180,7 @@ process iProphet {
 }
 
 
-iProphetOut.into{ iProphetOut1; iProphetOut2}
+iProphetOut.into{ iProphetOut1; iProphetOut2; iProphetOut3}
 
 // Run ProphetProphet on the output of iProphet
 process proteinProphet {
@@ -196,8 +193,8 @@ process proteinProphet {
     file protein_db from file(params.protein_db)
 
     output:
-    file '*.prot.xml'
-    file '*.prot-MODELS.html'
+    file '*.prot.xml' into proteinProphetOut
+    file '*.prot-MODELS.html' into proteinProphetModelOut
     
     script:
     """
@@ -206,10 +203,40 @@ process proteinProphet {
     """
 }
 
+
+// Get a list of proteins filtered at 1%FDR.
+//
+// This will be used to filter the PSMs that go into library
+// generation using ProteinProphet FDR, rather than pyprophet FDR.
+process getProteinList {
+    tag "$protxml"
+
+    publishDir 'Results/ProteinProphet', mode: 'link'
+
+    input:
+    file protxml from proteinProphetOut
+    file protxml_models from proteinProphetModelOut
+
+    output:
+    file 'protein_list.tsv' into getProteinListOut
+
+    script:
+    """
+    PROB=\$(get_prophet_prob.py -i $protxml_models)
+    xsltproc --params p_threshold \$PROB /usr/local/bin/get_protein_list.xsl $protxml > protein_list.tsv
+    """
+}
+
+
 // This needs to run once for each mzXML file we have (even if we were to
-// pool all search results into a single pepXML file)
+// pool all search results into a single pepXML file).
+//
+// One psmpkl and peakpkl file will be generated for each mzXML passed
+// to the process. The PSMs will be extracted from the single iprophet
+// output file (the associated probability will be from iProphet). The
+// peaks will come from the corresponding mzXML file.
 process easypqpConvert {
-    tag "$pepxml"
+    tag "$mzxml"
     
     memory = 10.GB
     
@@ -220,7 +247,7 @@ process easypqpConvert {
 
     output:
     file '*.psmpkl' into pepxmlConvertPsmsOut
-    file '*.peakpkl' into pepxmlConvertPklOut    
+    file '*.peakpkl' into pepxmlConvertPeakOut    
     
     script:
     """
@@ -228,39 +255,57 @@ process easypqpConvert {
     """
 }
 
-pepxmlConvertPsmsOut.into{pepxmlConvertPsmsOut1; pepxmlConvertPsmsOut2}
-pepxmlConvertPklOut.into{pepxmlConvertPklOut1; pepxmlConvertPklOut2}
+
+process filterPqp {
+    input:
+    file psmfile from pepxmlConvertPsmsOut
+    file peakfile from pepxmlConvertPeakOut
+    file pepxml_models from iProphetOut3
+    file protein_list from getProteinListOut
+
+    output:
+    file '*_filtered.psmpkl' into filterPqpPsmOut
+    file '*_filtered.peakpkl' into filterPqpPeakOut
+    
+    script:
+    """
+    PROB=\$(get_prophet_prob.py -i $pepxml_models)
+    filterpqp.py -s $psmfile -k $peakfile -l $protein_list -p \$PROB
+    """
+}
+
+filterPqpPsmOut.into{filterPqpPsmOut1; filterPqpPsmOut2}
+filterPeakPsmOut.into{filterPeakPsmOut1; filterPeakPsmOut2}
 
 // Create library for RT alignment
 //
 // We are only going to keep IDs from Q1 to minimize the risk of
 // reducing the library to IDs that are not seen in the DIA runs.
-pepxmlConvertPsmsRTOut = pepxmlConvertPsmsOut1.filter( ~/.*_Q1.psmpkl/ )
-pepxmlConvertPklRTOut = pepxmlConvertPklOut1.filter( ~/.*_Q1.peakpkl/ )
-process easypqpQ1 {
+filterPqpPsmRTOut = filterPqpPsmOut1.filter( ~/.*_Q1_filtered.psmpkl/ )
+filterPqpPeakRTOut = filterPeakPsmOut1.filter( ~/.*_Q1_filtered.peakpkl/ )
+process easypqpRT {
     tag "$psms"
     
     publishDir 'Results/easypqpLib', mode: 'link'
     
     input:
-    file psms from pepxmlConvertPsmsRTOut.collect()
-    file peakpkl from pepxmlConvertPklRTOut.collect()
+    file psms from filterPqpPsmRTOut.collect()
+    file peakpkl from filterPqpPeakRTOut.collect()
 
     output:
     file "libraryp_RT.tsv" into easypqpRTOut
     file "pyprophet_peptide_report_RT.pdf"
     file "pyprophet_protein_report_RT.pdf"
+    file "easypqp_rt_alignment*.pdf"
+    file "*_run_peaks.tsv"
     
     script:
     """
     easypqp library --out library_Q1.tsv \
-    --psm_fdr_threshold=$params.easypqp_psm_fdr_threshold \
-    --peptide_fdr_threshold=$params.easypqp_peptide_fdr_threshold \
-    --protein_fdr_threshold=$params.easypqp_protein_fdr_threshold \
     --rt_lowess_fraction=$params.easypqp_rt_lowess_fraction \
-    --pi0_lambda=$params.easypqp_pi0_lambda \
     --peptide_plot=pyprophet_peptide_report_Q1.pdf \
     --protein_plot=pyprophet_protein_report_Q1.pdf \
+    --no-fdr-filtering \
     $psms \
     $peakpkl
     """
@@ -311,8 +356,8 @@ process easypqp {
     publishDir 'Results/easypqpLib', mode: 'link'
     
     input:
-    file psms from pepxmlConvertPsmsOut2.collect()
-    file peakpkl from pepxmlConvertPklOut2.collect()
+    file psms from filterPqpPsmOut2.collect()
+    file peakpkl from filterPeakPsmOut2.collect()
 
     output:
     file "library.tsv" into easypqpOut
@@ -324,13 +369,10 @@ process easypqp {
     script:
     """
     easypqp library --out library.tsv \
-    --psm_fdr_threshold=$params.easypqp_psm_fdr_threshold \
-    --peptide_fdr_threshold=$params.easypqp_peptide_fdr_threshold \
-    --protein_fdr_threshold=$params.easypqp_protein_fdr_threshold \
     --rt_lowess_fraction=$params.easypqp_rt_lowess_fraction \
-    --pi0_lambda=$params.easypqp_pi0_lambda \
     --peptide_plot=pyprophet_peptide_report.pdf \
     --protein_plot=pyprophet_protein_report.pdf \
+    --no-fdr-filtering \
     $psms \
     $peakpkl
     """
