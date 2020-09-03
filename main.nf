@@ -282,7 +282,7 @@ filterPqpPeakOut.into{filterPqpPeakOut1; filterPqpPeakOut2}
 // We are only going to keep IDs from Q1 to minimize the risk of
 // reducing the library to IDs that are not seen in the DIA runs.
 filterPqpPsmRTOut = filterPqpPsmOut1.filter( ~/.*_Q1_filtered.psmpkl/ )
-filterPqpPeakRTOut = filterPeakPsmOut1.filter( ~/.*_Q1_filtered.peakpkl/ )
+filterPqpPeakRTOut = filterPqpPeakOut1.filter( ~/.*_Q1_filtered.peakpkl/ )
 process easypqpRT {
     tag "$psms"
     
