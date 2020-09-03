@@ -357,7 +357,7 @@ process easypqp {
     
     input:
     file psms from filterPqpPsmOut2.collect()
-    file peakpkl from filterPppPeakOut2.collect()
+    file peakpkl from filterPqpPeakOut2.collect()
 
     output:
     file "library.tsv" into easypqpOut
