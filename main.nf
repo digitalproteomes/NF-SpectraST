@@ -273,7 +273,8 @@ process filterPqp {
     
     script:
     """
-    PROB=\$(get_prophet_prob.py -i $pepxml_models)
+    grep -A 50 -B 1 "Error Table" $pepxml_models > short.hml
+    PROB=\$(get_prophet_prob.py -i short.html)
     filterpqp.py -s $psmfile -k $peakfile -l $protein_list -p \$PROB
     """
 }
