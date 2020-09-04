@@ -246,8 +246,8 @@ process easypqpConvert {
     file unimod from file(params.unimod)
 
     output:
-    file '*.psmpkl' into pepxmlConvertPsmsOut
-    file '*.peakpkl' into pepxmlConvertPeakOut    
+    file '${mzxml.baseName}.psmpkl' into pepxmlConvertPsmsOut
+    file '${mzxml.baseName}.peakpkl' into pepxmlConvertPeakOut    
     
     script:
     """
