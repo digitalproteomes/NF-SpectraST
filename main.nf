@@ -169,7 +169,7 @@ process iProphet {
 
     output:
     file 'iprophet.pep.xml' into iProphetOut
-    file 'iprophet.pep-MODELS.html' into iProphetModelsOut
+    file 'iprophet.pep-MODELS.html' into iProphetModelOut
 
     
     script:
