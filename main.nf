@@ -223,7 +223,7 @@ process getProteinList {
     script:
     """
     PROB=\$(get_prophet_prob.py -i $protxml_models)
-    xsltproc --params p_threshold \$PROB /usr/local/bin/get_protein_list.xsl $protxml > protein_list.tsv
+    xsltproc --param p_threshold \$PROB /usr/local/bin/get_protein_list.xsl $protxml > protein_list.tsv
     """
 }
 
