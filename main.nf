@@ -169,7 +169,7 @@ process iProphet {
 
     output:
     file 'iprophet.pep.xml' into iProphetOut
-    file 'iprophet.pep-MODELS.html'
+    file 'iprophet.pep-MODELS.html' into iProphetModelsOut
 
     
     script:
@@ -180,7 +180,7 @@ process iProphet {
 }
 
 
-iProphetOut.into{ iProphetOut1; iProphetOut2; iProphetOut3}
+iProphetOut.into{ iProphetOut1; iProphetOut2}
 
 // Run ProphetProphet on the output of iProphet
 process proteinProphet {
@@ -264,7 +264,7 @@ process filterPqp {
     input:
     file psmfile from pepxmlConvertPsmsOut
     file peakfile from pepxmlConvertPeakOut
-    file pepxml_models from iProphetOut3
+    file pepxml_models from iProphetModelOut
     file protein_list from getProteinListOut
 
     output:
