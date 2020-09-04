@@ -259,7 +259,7 @@ process easypqpConvert {
 process filterPqp {
     tag "$psmfile"
 
-    memory = 10.GB
+    memory = 50.GB
     
     input:
     file psmfile from pepxmlConvertPsmsOut
