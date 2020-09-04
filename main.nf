@@ -273,10 +273,10 @@ process filterPqp {
     
     script:
     """
-    grep -A 50 -B 1 "Error Table" $pepxml_models > short.hml
-    PROB=\$(get_prophet_prob.py -i short.html)
+    PROB=\$(get_prophet_prob.py -i $pepxml_models)
     filterpqp.py -s $psmfile -k $peakfile -l $protein_list -p \$PROB
     """
+//    grep -A 50 -B 1 "Error Table" $pepxml_models > short.hml
 }
 
 filterPqpPsmOut.into{filterPqpPsmOut1; filterPqpPsmOut2}
