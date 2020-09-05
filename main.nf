@@ -336,7 +336,7 @@ process oswAssayGeneratorRT {
     if( params.oswAssayGenerator_mode == 'OSW' )
         """
         OpenSwathAssayGenerator -in $library \
-        -out library_targets.pqp  \
+        -out library_targets_RT.pqp  \
         -precursor_upper_mz_limit $params.oswAssayGenerator_precursor_upper_mz_limit \
         -product_lower_mz_limit $params.oswAssayGenerator_product_lower_mz_limit \
         -min_transitions $params.oswAssayGenerator_min_transitions \
@@ -345,7 +345,7 @@ process oswAssayGeneratorRT {
     else if( params.oswAssayGenerator_mode == 'IPF' )
 	"""
         OpenSwathAssayGenerator -in $library
-        -out library_targets.pqp
+        -out library_targets_RT.pqp
         -enable_ipf 
         -unimod_file $params.unimod
         -disable_identification_ms2_precursors 
