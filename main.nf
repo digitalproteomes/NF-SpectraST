@@ -299,8 +299,8 @@ process easypqpRT {
 
     output:
     file "library_RT.tsv" into easypqpRTOut
-    file "pyprophet_peptide_report_RT.pdf"
-    file "pyprophet_protein_report_RT.pdf"
+    file "pyprophet_peptide_report_RT.pdf" optional true // Not generated with --nofdr
+    file "pyprophet_protein_report_RT.pdf" optional true // Not generated with --nofdr
     file "easypqp_rt_alignment*.pdf"
     file "*_run_peaks.tsv"
     
@@ -367,8 +367,8 @@ process easypqp {
 
     output:
     file "library.tsv" into easypqpOut
-    file "pyprophet_peptide_report.pdf"
-    file "pyprophet_protein_report.pdf"
+    file "pyprophet_peptide_report.pdf" optional true // Not generated with --nofdr
+    file "pyprophet_protein_report.pdf" optional true // Not generated with --nofdr
     file "easypqp_rt_alignment*.pdf"
     file "*_run_peaks.tsv"
     
