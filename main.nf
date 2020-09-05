@@ -311,7 +311,7 @@ process easypqpRT {
     --peptide_plot=pyprophet_peptide_report_RT.pdf \
     --protein_plot=pyprophet_protein_report_RT.pdf \
     --consensus \
-    --no-fdr-filtering \
+    --nofdr \
     $psms \
     $peakpkl
     """
@@ -378,7 +378,7 @@ process easypqp {
     --rt_lowess_fraction=$params.easypqp_rt_lowess_fraction \
     --peptide_plot=pyprophet_peptide_report.pdf \
     --protein_plot=pyprophet_protein_report.pdf \
-    --no-fdr-filtering \
+    --nofdr \
     $psms \
     $peakpkl
     """
