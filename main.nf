@@ -298,7 +298,7 @@ process easypqpRT {
     file peakpkl from filterPqpPeakRTOut.collect()
 
     output:
-    file "libraryp_RT.tsv" into easypqpRTOut
+    file "library_RT.tsv" into easypqpRTOut
     file "pyprophet_peptide_report_RT.pdf"
     file "pyprophet_protein_report_RT.pdf"
     file "easypqp_rt_alignment*.pdf"
