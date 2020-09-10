@@ -170,7 +170,6 @@ process iProphet {
     output:
     file 'iprophet.pep.xml' into iProphetOut
     file 'iprophet.pep-MODELS.html' into iProphetModelOut
-
     
     script:
     """
@@ -181,6 +180,8 @@ process iProphet {
 
 
 iProphetOut.into{ iProphetOut1; iProphetOut2}
+iProphetModelOut.into{ iProphetModelOut1; iProphetModelOut2 }
+
 
 // Run ProphetProphet on the output of iProphet
 process proteinProphet {
@@ -246,12 +247,27 @@ process easypqpConvert {
     file unimod from file(params.unimod)
 
     output:
-    file '*.psmpkl' into pepxmlConvertPsmsOut
-    file '*.peakpkl' into pepxmlConvertPeakOut    
+    tuple file('*.psmpkl'), file('*.peakpkl') into easypqpConvert
     
     script:
     """
     easypqp convert --unimod $unimod --pepxml $pepxml --psms ${mzxml.baseName}.psmpkl --spectra $mzxml --peaks ${mzxml.baseName}.peakpkl
+    """
+}
+
+
+process getPepPThreshold {
+    tag "$pepxml_models"
+    
+    input:
+    file pepxml_models from iProphetModelOut1
+
+    output:
+    env PROB into iProphetPThresholdOut
+
+    script:
+    """
+    PROB=\$(get_prophet_prob.py -i $pepxml_models)
     """
 }
 
@@ -262,9 +278,9 @@ process filterPqp {
     memory = 50.GB
     
     input:
-    file psmfile from pepxmlConvertPsmsOut
-    file peakfile from pepxmlConvertPeakOut
-    file pepxml_models from iProphetModelOut
+    tuple file(psmfile), file(peakfile) from easypqpConvert
+    file pepxml_models from iProphetModelOut2
+    env PROB from iProphetPThresholdOut
     file protein_list from getProteinListOut
 
     output:
@@ -273,10 +289,8 @@ process filterPqp {
     
     script:
     """
-    PROB=\$(get_prophet_prob.py -i $pepxml_models)
     filterpqp.py -s $psmfile -k $peakfile -l $protein_list -p \$PROB
     """
-//    grep -A 50 -B 1 "Error Table" $pepxml_models > short.hml
 }
 
 filterPqpPsmOut.into{filterPqpPsmOut1; filterPqpPsmOut2}
