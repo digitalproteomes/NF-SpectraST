@@ -351,10 +351,14 @@ process oswAssayGeneratorRT {
         """
         OpenSwathAssayGenerator -in $library \
         -out library_targets_RT.pqp  \
+        -precursor_lower_mz_limit $params.oswAssayGenerator_precursor_lower_mz_limit \
         -precursor_upper_mz_limit $params.oswAssayGenerator_precursor_upper_mz_limit \
         -product_lower_mz_limit $params.oswAssayGenerator_product_lower_mz_limit \
+        -product_upper_mz_limit $params.oswAssayGenerator_product_upper_mz_limit \
         -min_transitions $params.oswAssayGenerator_min_transitions \
-        -max_transitions $params.oswAssayGenerator_max_transitions
+        -max_transitions $params.oswAssayGenerator_max_transitions\
+        -swath_windows_file $params.oswAssayGenerator_swath_windows_file \
+        -unimod $params.unimod
         """
     else if( params.oswAssayGenerator_mode == 'IPF' )
 	"""
@@ -415,10 +419,14 @@ process oswAssayGenerator {
         """
         OpenSwathAssayGenerator -in $library \
         -out library_targets.pqp  \
+        -precursor_lower_mz_limit $params.oswAssayGenerator_precursor_lower_mz_limit \
         -precursor_upper_mz_limit $params.oswAssayGenerator_precursor_upper_mz_limit \
         -product_lower_mz_limit $params.oswAssayGenerator_product_lower_mz_limit \
+        -product_upper_mz_limit $params.oswAssayGenerator_product_upper_mz_limit \
         -min_transitions $params.oswAssayGenerator_min_transitions \
-        -max_transitions $params.oswAssayGenerator_max_transitions
+        -max_transitions $params.oswAssayGenerator_max_transitions \
+        -swath_windows_file $params.oswAssayGenerator_swath_windows_file \
+        -unimod $params.unimod
         """
     else if( params.oswAssayGenerator_mode == 'IPF' )
 	"""
