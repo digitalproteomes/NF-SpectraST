@@ -40,9 +40,16 @@ if(params.help) {
 }
 
 
+// Create a channel with the names of all DDA files.
+// We strip DIA-Umpire specific tags from file names.
+// We are going to use this to skip generation of pseudoDDA spectra for
+// those mzXML files that have already been process by DIA-Umpire.
 dda_filenames = Channel
     .fromPath("$params.dda_folder/*.mzXML")
     .flatMap{ it -> "${it.baseName}".replaceAll(/_Q[0-9]/,"") }
+// If there are no DDA files, the when condition in diaUmpire will fail.
+// Let's provide some defaults
+dda_filenames = dda_filenames.ifEmpty('')
 
 // NOTE if you already have run DIA-Umpire separately, you can add the
 // pseudo-DDA files to the DDA folder and this step will be skipped
