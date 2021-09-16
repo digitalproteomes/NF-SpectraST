@@ -351,6 +351,7 @@ process oswAssayGeneratorRT {
     input:
     file library from easypqpRTOut
     file swath_windows from file(params.oswAssayGenerator_swath_windows_file)
+    file unimod from file(params.unimod)
     
     output:
     file "library_targets_RT.pqp"
@@ -367,14 +368,14 @@ process oswAssayGeneratorRT {
         -min_transitions $params.oswAssayGenerator_min_transitions \
         -max_transitions $params.oswAssayGenerator_max_transitions\
         -swath_windows_file "$swath_windows" \
-        -unimod_file $params.unimod
+        -unimod_file $unimod
         """
     else if( params.oswAssayGenerator_mode == 'IPF' )
 	"""
         OpenSwathAssayGenerator -in $library
         -out library_targets_RT.pqp
         -enable_ipf 
-        -unimod_file $params.unimod
+        -unimod_file $unimod
         -disable_identification_ms2_precursors 
         -disable_identification_specific_losses
         """
@@ -420,6 +421,7 @@ process oswAssayGenerator {
     input:
     file library from easypqpOut
     file swath_windows from file(params.oswAssayGenerator_swath_windows_file)
+    file unimod from file(params.unimod)
     
     output:
     file "library_targets.pqp" into assayGeneratorOut
@@ -436,14 +438,14 @@ process oswAssayGenerator {
         -min_transitions $params.oswAssayGenerator_min_transitions \
         -max_transitions $params.oswAssayGenerator_max_transitions \
         -swath_windows_file "$swath_windows" \
-        -unimod_file $params.unimod
+        -unimod_file $unimod
         """
     else if( params.oswAssayGenerator_mode == 'IPF' )
 	"""
         OpenSwathAssayGenerator -in $library
         -out library_targets.pqp
         -enable_ipf 
-        -unimod_file $params.unimod
+        -unimod_file $unimod
         -disable_identification_ms2_precursors 
         -disable_identification_specific_losses
         """
