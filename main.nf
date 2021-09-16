@@ -67,7 +67,7 @@ process diaUmpire {
     val diaumpire_done from dda_filenames.collect()
 
     when:
-    ! diaumpire_done.contains(dia_file.baseName)
+    ! diaumpire_done.contains(dia_file.baseName) && params.diau_run
         
     output:
     // If configuration file sets Q1,2, and 3 to false no output
