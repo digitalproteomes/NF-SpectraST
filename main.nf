@@ -419,10 +419,10 @@ process oswAssayGenerator {
     
     input:
     file library from easypqpOut
+    file swath_windows from file(params.oswAssayGenerator_swath_windows_file)
     
     output:
     file "library_targets.pqp" into assayGeneratorOut
-    file swath_windows from file(params.oswAssayGenerator_swath_windows_file)
     
     script:
     if( params.oswAssayGenerator_mode == 'OSW' )
