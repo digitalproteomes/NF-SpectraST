@@ -350,6 +350,7 @@ process oswAssayGeneratorRT {
     
     input:
     file library from easypqpRTOut
+    file swath_windows from file(params.oswAssayGenerator_swath_windows_file
     
     output:
     file "library_targets_RT.pqp"
@@ -365,7 +366,7 @@ process oswAssayGeneratorRT {
         -product_upper_mz_limit $params.oswAssayGenerator_product_upper_mz_limit \
         -min_transitions $params.oswAssayGenerator_min_transitions \
         -max_transitions $params.oswAssayGenerator_max_transitions\
-        -swath_windows_file $params.oswAssayGenerator_swath_windows_file \
+        -swath_windows_file $swath_windows \
         -unimod_file $params.unimod
         """
     else if( params.oswAssayGenerator_mode == 'IPF' )
