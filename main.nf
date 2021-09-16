@@ -70,7 +70,8 @@ process diaUmpire {
     ! diaumpire_done.contains(dia_file.baseName)
         
     output:
-    file '*.mgf' into diaUmpireOut
+    // If configuration file sets Q1,2, and 3 to false no output
+    file '*.mgf' optional true into diaUmpireOut
 
     script:
     """
