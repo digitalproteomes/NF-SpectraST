@@ -350,7 +350,7 @@ process oswAssayGeneratorRT {
     
     input:
     file library from easypqpRTOut
-    file swath_windows from file(params.oswAssayGenerator_swath_windows_file
+    file swath_windows from file(params.oswAssayGenerator_swath_windows_file)
     
     output:
     file "library_targets_RT.pqp"
