@@ -434,7 +434,7 @@ process oswAssayGenerator {
         -min_transitions $params.oswAssayGenerator_min_transitions \
         -max_transitions $params.oswAssayGenerator_max_transitions \
         -swath_windows_file $params.oswAssayGenerator_swath_windows_file \
-        -unimod $params.unimod
+        -unimod_file $params.unimod
         """
     else if( params.oswAssayGenerator_mode == 'IPF' )
 	"""
