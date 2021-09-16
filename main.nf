@@ -366,7 +366,7 @@ process oswAssayGeneratorRT {
         -product_upper_mz_limit $params.oswAssayGenerator_product_upper_mz_limit \
         -min_transitions $params.oswAssayGenerator_min_transitions \
         -max_transitions $params.oswAssayGenerator_max_transitions\
-        -swath_windows_file $swath_windows \
+        -swath_windows_file "$swath_windows" \
         -unimod_file $params.unimod
         """
     else if( params.oswAssayGenerator_mode == 'IPF' )
@@ -422,6 +422,7 @@ process oswAssayGenerator {
     
     output:
     file "library_targets.pqp" into assayGeneratorOut
+    file swath_windows from file(params.oswAssayGenerator_swath_windows_file)
     
     script:
     if( params.oswAssayGenerator_mode == 'OSW' )
@@ -434,7 +435,7 @@ process oswAssayGenerator {
         -product_upper_mz_limit $params.oswAssayGenerator_product_upper_mz_limit \
         -min_transitions $params.oswAssayGenerator_min_transitions \
         -max_transitions $params.oswAssayGenerator_max_transitions \
-        -swath_windows_file $params.oswAssayGenerator_swath_windows_file \
+        -swath_windows_file "$swath_windows" \
         -unimod_file $params.unimod
         """
     else if( params.oswAssayGenerator_mode == 'IPF' )
